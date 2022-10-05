@@ -1,0 +1,15 @@
+[package]
+name = "lazy_async_promise"
+version = "0.1.0"
+edition = "2021"
+authors = ["Christopher Regali <christopher.regali@vdop.org>"]
+license = "MIT"
+repository = "https://github.com/ChrisRega/lazy_async_promise"
+homepage = "https://github.com/ChrisRega/lazy_async_promise"
+documentation = "https://docs.rs/lazy_async_promise"
+readme = "README.md"
+exclude = [".github"]
+description = "Primitives for lazily getting data from futures with tokio for immediate mode guis"
+
+[dependencies]
+tokio = {version="1", features=["rt-multi-thread", "sync", "time"]}
