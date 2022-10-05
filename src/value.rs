@@ -4,7 +4,7 @@ use std::future::Future;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 /// # A single lazy-async updated value
-/// Create one with the [`new`] method and supply an updater.
+/// Create one with the [`LazyValuePromise::new`] method and supply an updater.
 /// It's Updated only on first try to poll it making it scale nicely on more complex UIs.
 /// Type erasure can be done using a Box with dyn [`ValuePromise`]
 /// Examples:
@@ -117,11 +117,11 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
 
 #[cfg(test)]
 mod test {
-    use tokio::sync::mpsc::Sender;
     use super::*;
     use crate::unpack_result;
     use std::time::Duration;
     use tokio::runtime::Runtime;
+    use tokio::sync::mpsc::Sender;
 
     #[test]
     fn basic_usage_cycle() {
