@@ -7,3 +7,5 @@ This crate currently only features two simple primitives for getting computation
 - LazyValuePromise for a single value future
 
 As the name suggests both of them are lazily evaluated and nothing happens until polled for the first time.
+
+Example-usage of this crate with a small egui/eframe blog-reader can be found [here](https://github.com/ChrisRega/example-blog-client/)
