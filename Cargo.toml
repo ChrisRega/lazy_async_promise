@@ -12,4 +12,4 @@ exclude = [".github"]
 description = "Primitives for lazily getting data from futures with tokio for immediate mode guis"
 
 [dependencies]
-tokio = {version="1", features=["rt-multi-thread", "sync", "time"]}
+tokio = {version="1", features=["rt-multi-thread", "sync", "time", "macros"]}

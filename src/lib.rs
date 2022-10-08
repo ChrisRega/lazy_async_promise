@@ -8,11 +8,20 @@
 #![warn(unused_qualifications)]
 #![deny(deprecated)]
 
+extern crate core;
+
+mod immediatevalue;
 mod value;
 mod vec;
 
 #[doc(inline)]
 pub use vec::LazyVecPromise;
+
+#[doc(inline)]
+pub use immediatevalue::ImmediateValuePromise;
+pub use immediatevalue::ToDynSendBox;
+pub use immediatevalue::ImmediateValueState;
+
 
 #[doc(inline)]
 pub use value::LazyValuePromise;
