@@ -11,20 +11,19 @@
 extern crate core;
 
 mod immediatevalue;
-mod value;
-mod vec;
+mod lazyvalue;
+mod lazyvec;
 
 #[doc(inline)]
-pub use vec::LazyVecPromise;
+pub use lazyvec::LazyVecPromise;
 
 #[doc(inline)]
 pub use immediatevalue::ImmediateValuePromise;
-pub use immediatevalue::ToDynSendBox;
 pub use immediatevalue::ImmediateValueState;
-
+pub use immediatevalue::ToDynSendBox;
 
 #[doc(inline)]
-pub use value::LazyValuePromise;
+pub use lazyvalue::LazyValuePromise;
 
 use std::fmt::Debug;
 #[derive(Clone, PartialEq, Eq, Debug)]
