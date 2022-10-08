@@ -22,6 +22,33 @@ impl<E: Error + Send + 'static> ToDynSendBox for E {
 
 /// # A promise which can be easily created and stored.
 /// Will spawn a task to resolve the future immediately.
+/// ```rust, no_run
+/// use std::fs::File;
+/// use std::thread;
+/// use std::time::Duration;
+/// use lazy_async_promise::{ImmediateValuePromise, ImmediateValueState, ToDynSendBox};
+/// let mut oneshot_val = ImmediateValuePromise::new(async {
+///     tokio::time::sleep(Duration::from_millis(50)).await;
+///     let test_error_handling = false;
+///     if test_error_handling {
+///       // We can use `into_boxed` for most errors to use the ?-Operator in our futures
+///       let _file = File::open("I_DONT_EXIST_ERROR").map_err(|e| e.into_boxed())?;
+///     }
+///     // return the value wrapped in Ok for the result here
+///     Ok(34)
+/// });
+/// assert!(matches!(
+///     oneshot_val.poll_state(),
+///     ImmediateValueState::Updating
+/// ));
+/// thread::sleep(Duration::from_millis(100));
+/// let result = oneshot_val.poll_state();
+/// if let ImmediateValueState::Success(val) = result {
+///     assert_eq!(*val, 34);
+/// } else {
+///     unreachable!();
+/// }
+/// ```
 pub struct ImmediateValuePromise<T: Send + 'static> {
     value_arc: Arc<Mutex<Option<FutureResult<T>>>>,
     state: ImmediateValueState<T>,
