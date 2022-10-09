@@ -70,6 +70,10 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
             updater,
         }
     }
+    #[cfg(test)]
+    pub fn is_uninitialized(&self) -> bool {
+        self.state == DataState::Uninitialized
+    }
 }
 
 impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static>
@@ -121,11 +125,11 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
 
 #[cfg(test)]
 mod test {
-    use tokio::sync::mpsc::Sender;
     use super::*;
     use crate::unpack_result;
     use std::time::Duration;
     use tokio::runtime::Runtime;
+    use tokio::sync::mpsc::Sender;
 
     #[test]
     fn basic_usage_cycle() {
@@ -142,6 +146,7 @@ mod test {
         Runtime::new().unwrap().block_on(async {
             let mut delayed_vec = LazyVecPromise::new(string_maker, 6);
             // start empty, polling triggers update
+            assert!(delayed_vec.is_uninitialized());
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating);
             assert!(delayed_vec.as_slice().is_empty());
             // after wait we have a result

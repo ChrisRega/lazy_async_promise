@@ -66,6 +66,11 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
             updater,
         }
     }
+
+    #[cfg(test)]
+    pub fn is_uninitialized(&self) -> bool {
+        self.state == DataState::Uninitialized
+    }
 }
 
 impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static> Value<T>
@@ -137,7 +142,9 @@ mod test {
 
         Runtime::new().unwrap().block_on(async {
             let mut delayed_value = LazyValuePromise::new(string_maker, 6);
-            //start empty
+            //be lazy:
+            assert!(delayed_value.is_uninitialized());
+            //start sets updating
             assert_eq!(*delayed_value.poll_state(), DataState::Updating);
             assert!(delayed_value.value().is_none());
             //after wait, value is there
