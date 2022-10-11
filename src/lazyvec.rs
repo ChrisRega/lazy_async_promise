@@ -1,16 +1,16 @@
-use crate::{DataState, Message, Promise, SlicePromise, Sliceable};
+use crate::{box_future_factory, BoxedFutureFactory, DataState, Message, Promise};
 use std::fmt::Debug;
 use std::future::Future;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 /// # A lazy, async and partially readable vector promise
 /// This promise is the right one for async acquiring of lists which should be partially readable on each frame.
-/// It's lazy, meaning that no spawning is done, until the first poll is emitted. Type erasure can be done using a Box with dyn [`SlicePromise`]
+/// Imagine slowly streaming data and wanting to read them out as far as they are available each frame.
 /// Examples:
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, SlicePromise, ValuePromise};
+/// use lazy_async_promise::{DataState, Message, Promise};
 /// use lazy_async_promise::LazyVecPromise;
 /// use lazy_async_promise::unpack_result;
 /// // updater-future:
@@ -28,10 +28,8 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// };
 /// // direct usage:
 /// let promise = LazyVecPromise::new(updater, 10);
-/// // or storing it with type-erasure for easier usage in application state structs:
-/// let boxed: Box<dyn SlicePromise<i32>> = Box::new(LazyVecPromise::new(updater, 6));
 ///
-/// fn main_loop(lazy_promise: &mut Box<dyn SlicePromise<i32>>) {
+/// fn main_loop(lazy_promise: &mut LazyVecPromise<i32>) {
 ///   loop {
 ///     match lazy_promise.poll_state() {
 ///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); },
@@ -43,23 +41,24 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```
 ///
 ///
-pub struct LazyVecPromise<
-    T: Debug,
-    U: Fn(Sender<Message<T>>) -> Fut,
-    Fut: Future<Output = ()> + Send + 'static,
-> {
+
+pub struct LazyVecPromise<T: Debug> {
     data: Vec<T>,
     state: DataState,
     rx: Receiver<Message<T>>,
     tx: Sender<Message<T>>,
-    updater: U,
+    updater: BoxedFutureFactory<T>,
 }
 
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static>
-    LazyVecPromise<T, U, Fut>
-{
+impl<T: Debug> LazyVecPromise<T> {
     /// creates a new LazyVecPromise given an updater functor and a tokio buffer size
-    pub fn new(updater: U, buffer_size: usize) -> Self {
+    pub fn new<
+        U: Fn(Sender<Message<T>>) -> Fut + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    >(
+        future_factory: U,
+        buffer_size: usize,
+    ) -> Self {
         let (tx, rx) = channel::<Message<T>>(buffer_size);
 
         Self {
@@ -67,31 +66,22 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
             state: DataState::Uninitialized,
             rx,
             tx,
-            updater,
+            updater: box_future_factory(future_factory),
         }
     }
+
+    /// get current data as slice, may be incomplete depending on status
+    pub fn as_slice(&self) -> &[T] {
+        self.data.as_slice()
+    }
+
     #[cfg(test)]
     pub fn is_uninitialized(&self) -> bool {
         self.state == DataState::Uninitialized
     }
 }
 
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static>
-    Sliceable<T> for LazyVecPromise<T, U, Fut>
-{
-    fn as_slice(&self) -> &[T] {
-        self.data.as_slice()
-    }
-}
-
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static>
-    SlicePromise<T> for LazyVecPromise<T, U, Fut>
-{
-}
-
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static> Promise
-    for LazyVecPromise<T, U, Fut>
-{
+impl<T: Debug> Promise for LazyVecPromise<T> {
     fn poll_state(&mut self) -> &DataState {
         if self.state == DataState::Uninitialized {
             self.update();

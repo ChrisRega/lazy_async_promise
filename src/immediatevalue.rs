@@ -21,7 +21,7 @@ impl<E: Error + Send + 'static> ToDynSendBox for E {
 }
 
 /// # A promise which can be easily created and stored.
-/// Will spawn a task to resolve the future immediately.
+/// Will spawn a task to resolve the future immediately. No possibility to read out interim values.
 /// ```rust, no_run
 /// use std::fs::File;
 /// use std::thread;
@@ -54,7 +54,7 @@ pub struct ImmediateValuePromise<T: Send + 'static> {
     state: ImmediateValueState<T>,
 }
 
-/// The return state of a [`OneShotValue`], contains the error, the value or that it is still updating
+/// The return state of a [`ImmediateValuePromise`], contains the error, the value or that it is still updating
 pub enum ImmediateValueState<T> {
     /// future is not yet resolved
     Updating,

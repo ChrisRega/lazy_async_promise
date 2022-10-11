@@ -1,12 +1,18 @@
 #![crate_name = "lazy_async_promise"]
 //! # Primitives for combining tokio and immediate mode guis
-//! Currently, only two primitives are implemented:
+//! Currently, only three primitives are implemented:
 //! - [`LazyVecPromise`]: A lazily evaluated, partially readable and async-enabled vector-backed promise
 //! - [`LazyValuePromise`]: A lazily evaluated and async-enabled single value promise
-//!
-#![warn(missing_docs)]
-#![warn(unused_qualifications)]
+//! - [`ImmediateValuePromise`]: An immediately updating async-enabled single value promise
+//! See these items for their respective documentation. A general usage guide would be:
+//! - You want several items of the same kind displayed / streamed? Use: [`LazyVecPromise`]
+//! - You want one item displayed when ready and need lazy evaluation or have intermediate results? Use: [`LazyVecPromise`]
+//! - You want one item displayed when ready and can afford spawning it directly? Use: [`ImmediateValuePromise`]
+#![deny(missing_docs)]
+#![deny(unused_qualifications)]
 #![deny(deprecated)]
+#![deny(absolute_paths_not_starting_with_crate)]
+#![deny(unstable_features)]
 
 extern crate core;
 
@@ -26,6 +32,10 @@ pub use immediatevalue::ToDynSendBox;
 pub use lazyvalue::LazyValuePromise;
 
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
+use tokio::sync::mpsc::Sender;
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 /// Represents a processing state.
 pub enum DataState {
@@ -59,24 +69,6 @@ pub trait Promise {
     fn update(&mut self);
 }
 
-/// Implementors can be viewed as slice
-pub trait Sliceable<T> {
-    /// get current data slice
-    fn as_slice(&self) -> &[T];
-}
-
-/// Implementors may have a value
-pub trait Value<T> {
-    /// Maybe returns the value, depending on the object's state
-    fn value(&self) -> Option<&T>;
-}
-
-/// Some type that implements lazy updating and provides a slice of the desired type
-pub trait SlicePromise<T>: Promise + Sliceable<T> {}
-
-/// Some type that implements lazy updating and provides a single value of the desired type
-pub trait ValuePromise<T>: Promise + Value<T> {}
-
 #[macro_export]
 /// Error checking in async updater functions is tedious - this helps out by resolving results and sending errors on error. Result will be unwrapped if no error occurs.
 macro_rules! unpack_result {
@@ -92,4 +84,17 @@ macro_rules! unpack_result {
             }
         }
     };
+}
+
+type BoxedFutureFactory<T> =
+    Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>>;
+
+fn box_future_factory<
+    T: Debug,
+    U: Fn(Sender<Message<T>>) -> Fut + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
+>(
+    future_factory: U,
+) -> BoxedFutureFactory<T> {
+    Box::new(move |tx: Sender<Message<T>>| Box::pin(future_factory(tx)))
 }

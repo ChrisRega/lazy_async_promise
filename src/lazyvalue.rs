@@ -1,4 +1,4 @@
-use crate::{DataState, Message, Promise, Value, ValuePromise};
+use crate::{box_future_factory, BoxedFutureFactory, DataState, Message, Promise};
 use std::fmt::Debug;
 use std::future::Future;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -6,12 +6,12 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// # A single lazy-async updated value
 /// Create one with the [`LazyValuePromise::new`] method and supply an updater.
 /// It's Updated only on first try to poll it making it scale nicely on more complex UIs.
-/// Type erasure can be done using a Box with dyn [`ValuePromise`]
+/// While still updating, the value can be read out already, this can make sense for iterative algorithms where an intermediate result can be used as a preview.
 /// Examples:
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, ValuePromise};
+/// use lazy_async_promise::{DataState, Message, Promise};
 /// use lazy_async_promise::LazyValuePromise;
 /// use lazy_async_promise::unpack_result;
 /// // updater-future:
@@ -24,14 +24,12 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// };
 /// // direct usage:
 /// let promise = LazyValuePromise::new(updater, 10);
-/// // or storing it with type-erasure for easier usage in application state structs:
-/// let boxed: Box<dyn ValuePromise<i32>> = Box::new(LazyValuePromise::new(updater, 6));
 ///
-/// fn main_loop(lazy_promise: &mut Box<dyn ValuePromise<i32>>) {
+/// fn main_loop(lazy_promise: &mut  LazyValuePromise<i32>) {
 ///   loop {
 ///     match lazy_promise.poll_state() {
-///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); },
-///       DataState::UpToDate   => { println!("Value up2date: {}", lazy_promise.value().unwrap()); },
+///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); }
+///       DataState::UpToDate   => { println!("Value up2date: {}", lazy_promise.value().unwrap()); }
 ///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.value()); }  
 ///     }
 ///   }
@@ -40,22 +38,22 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///
 ///
 
-pub struct LazyValuePromise<
-    T: Debug,
-    U: Fn(Sender<Message<T>>) -> Fut,
-    Fut: Future<Output = ()> + Send + 'static,
-> {
+pub struct LazyValuePromise<T: Debug> {
     cache: Option<T>,
-    updater: U,
+    updater: BoxedFutureFactory<T>,
     state: DataState,
     rx: Receiver<Message<T>>,
     tx: Sender<Message<T>>,
 }
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static>
-    LazyValuePromise<T, U, Fut>
-{
+impl<T: Debug> LazyValuePromise<T> {
     /// Creates a new LazyValuePromise given an Updater and a tokio buffer size
-    pub fn new(updater: U, buffer_size: usize) -> Self {
+    pub fn new<
+        U: Fn(Sender<Message<T>>) -> Fut + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    >(
+        future_factory: U,
+        buffer_size: usize,
+    ) -> Self {
         let (tx, rx) = channel::<Message<T>>(buffer_size);
 
         Self {
@@ -63,8 +61,13 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
             state: DataState::Uninitialized,
             rx,
             tx,
-            updater,
+            updater: box_future_factory(future_factory),
         }
+    }
+
+    /// get current value, may be incomplete depending on status
+    pub fn value(&self) -> Option<&T> {
+        self.cache.as_ref()
     }
 
     #[cfg(test)]
@@ -73,22 +76,7 @@ impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send
     }
 }
 
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static> Value<T>
-    for LazyValuePromise<T, U, Fut>
-{
-    fn value(&self) -> Option<&T> {
-        self.cache.as_ref()
-    }
-}
-
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static>
-    ValuePromise<T> for LazyValuePromise<T, U, Fut>
-{
-}
-
-impl<T: Debug, U: Fn(Sender<Message<T>>) -> Fut, Fut: Future<Output = ()> + Send + 'static> Promise
-    for LazyValuePromise<T, U, Fut>
-{
+impl<T: Debug> Promise for LazyValuePromise<T> {
     fn poll_state(&mut self) -> &DataState {
         if self.state == DataState::Uninitialized {
             self.update();
