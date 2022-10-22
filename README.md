@@ -2,7 +2,7 @@
 [![Documentation](https://docs.rs/lazy_async_promise/badge.svg)](https://docs.rs/lazy_async_promise)
 ![CI](https://github.com/ChrisRega/lazy_async_promise/actions/workflows/rust.yml/badge.svg?branch=main "CI")
 [![Coverage Status](https://coveralls.io/repos/github/ChrisRega/lazy_async_promise/badge.svg?branch=main)](https://coveralls.io/github/ChrisRega/lazy_async_promise?branch=main)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE-MIT)
 
 
 This crate currently only features simple primitives for getting computation time off the main thread using tokio:
