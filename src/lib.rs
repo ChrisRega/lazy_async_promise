@@ -36,7 +36,7 @@ use std::future::Future;
 use std::pin::Pin;
 use tokio::sync::mpsc::Sender;
 
-/// a f32 type which is constrained to the range of 0.0 and 1.0
+/// a f64 type which is constrained to the range of 0.0 and 1.0
 #[derive(Clone, PartialEq, Debug)]
 pub struct Progress(f64);
 
@@ -68,6 +68,16 @@ impl Progress {
     ///
     pub fn from_fraction(numerator: impl Into<f64>, denominator: impl Into<f64>) -> Progress {
         (numerator.into() / denominator.into()).into()
+    }
+
+    /// return progress as f32
+    pub fn as_f32(&self) -> f32 {
+        self.0 as f32
+    }
+
+    /// return progress as f64
+    pub fn as_f64(&self) -> f64 {
+        self.0 as f64
     }
 }
 
@@ -161,8 +171,8 @@ mod test {
     #[test]
     fn progress_clamps() {
         let minimum = Progress::from_percent(-50);
-        assert_eq!(minimum.0, 0.0);
+        assert_eq!(minimum.as_f32(), 0.0);
         let maximum = Progress::from_fraction(2, 1);
-        assert_eq!(maximum.0, 1.0);
+        assert_eq!(maximum.as_f64(), 1.0);
     }
 }
