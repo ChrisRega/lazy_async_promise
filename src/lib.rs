@@ -13,6 +13,7 @@
 #![deny(deprecated)]
 #![deny(absolute_paths_not_starting_with_crate)]
 #![deny(unstable_features)]
+#![deny(unsafe_code)]
 
 extern crate core;
 

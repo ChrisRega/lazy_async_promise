@@ -91,25 +91,10 @@ impl<T: Send> ImmediateValuePromise<T> {
 #[cfg(test)]
 mod test {
     use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
-    use std::error::Error;
-    use std::fmt::{Display, Formatter};
+    use std::fs::File;
     use std::thread;
     use std::time::Duration;
     use tokio::runtime::Runtime;
-
-    #[derive(Debug)]
-    struct TestError {
-        code: i32,
-    }
-    unsafe impl Send for TestError {}
-    unsafe impl Sync for TestError {}
-
-    impl Display for TestError {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            write!(f, "code: {}", self.code)
-        }
-    }
-    impl Error for TestError {}
 
     #[test]
     fn default() {
@@ -126,9 +111,9 @@ mod test {
             let result = oneshot_val.poll_state();
             if let ImmediateValueState::Success(val) = result {
                 assert_eq!(*val, 34);
-            } else {
-                unreachable!();
+                return;
             }
+            unreachable!();
         });
     }
 
@@ -136,7 +121,7 @@ mod test {
     fn error() {
         Runtime::new().unwrap().block_on(async {
             let mut oneshot_val = ImmediateValuePromise::new(async {
-                let some_result = Err(TestError { code: 0 });
+                let some_result = File::open("DOES_NOT_EXIST");
                 some_result?;
                 Ok("bla".to_string())
             });
