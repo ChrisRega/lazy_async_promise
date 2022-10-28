@@ -1,6 +1,6 @@
 [package]
 name = "lazy_async_promise"
-version = "0.3.0"
+version = "0.3.0-RC1"
 edition = "2021"
 authors = ["Christopher Regali <christopher.regali@vdop.org>"]
 license = "MIT"

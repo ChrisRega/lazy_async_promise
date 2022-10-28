@@ -13,7 +13,9 @@ impl<E: Error + Send + 'static> From<E> for BoxedSendError {
 }
 
 /// # A promise which can be easily created and stored.
-/// Will spawn a task to resolve the future immediately. No possibility to read out interim values.
+/// Will spawn a task to resolve the future immediately. No possibility to read out intermediate values or communicate progress.
+/// One can use `Option<ImmediateValuePromise<T>>` inside state structs to make this class somewhat lazy.
+/// That may be an option if you don't need any progress indication or intermediate values.
 /// ```rust, no_run
 /// use std::fs::File;
 /// use std::thread;
@@ -57,7 +59,7 @@ pub enum ImmediateValueState<T> {
 }
 
 impl<T: Send> ImmediateValuePromise<T> {
-    /// Creator, supply a future which returns `Result<T, Box<dyn Error + Send>`. Will be immediately spawned.
+    /// Creator, supply a future which returns `Result<T, Box<dyn Error + Send>`. Will be immediately spawned via tokio.
     pub fn new<U: Future<Output = Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
         let arc = Arc::new(Mutex::new(None));
         let arc_clone = arc.clone();
