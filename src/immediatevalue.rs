@@ -3,20 +3,12 @@ use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-type DynErrorSend = Box<dyn Error + Send>;
-type FutureResult<T> = Result<T, DynErrorSend>;
+pub struct BoxedSendError(Box<dyn Error + Send>);
+type FutureResult<T> = Result<T, BoxedSendError>;
 
-/// Allows to use into_boxed for map_err constructs more easily.
-/// Blanked implementation for all `Error + Send + 'static` exists.
-pub trait ToDynSendBox {
-    /// turns this value into a `Box<dyn Error + Send>`
-    fn into_boxed(self) -> Box<dyn Error + Send>;
-}
-
-impl<E: Error + Send + 'static> ToDynSendBox for E {
-    fn into_boxed(self) -> Box<dyn Error + Send> {
-        let boxed: Box<dyn Error + Send> = Box::new(self);
-        boxed
+impl<E: Error + Send + 'static> From<E> for BoxedSendError {
+    fn from(e: E) -> Self {
+        BoxedSendError(Box::new(e))
     }
 }
 
@@ -26,13 +18,13 @@ impl<E: Error + Send + 'static> ToDynSendBox for E {
 /// use std::fs::File;
 /// use std::thread;
 /// use std::time::Duration;
-/// use lazy_async_promise::{ImmediateValuePromise, ImmediateValueState, ToDynSendBox};
+/// use lazy_async_promise::{ImmediateValuePromise, ImmediateValueState};
 /// let mut oneshot_val = ImmediateValuePromise::new(async {
 ///     tokio::time::sleep(Duration::from_millis(50)).await;
 ///     let test_error_handling = false;
 ///     if test_error_handling {
-///       // We can use `into_boxed` for most errors to use the ?-Operator in our futures
-///       let _file = File::open("I_DONT_EXIST_ERROR").map_err(|e| e.into_boxed())?;
+///       // We can use the ?-operator for most errors in our futures
+///       let _file = File::open("I_DONT_EXIST_ERROR")?;
 ///     }
 ///     // return the value wrapped in Ok for the result here
 ///     Ok(34)
@@ -61,14 +53,12 @@ pub enum ImmediateValueState<T> {
     /// future resolved successfully
     Success(T),
     /// resolving the future failed somehow
-    Error(Box<dyn Error + Send>),
+    Error(BoxedSendError),
 }
 
 impl<T: Send> ImmediateValuePromise<T> {
     /// Creator, supply a future which returns `Result<T, Box<dyn Error + Send>`. Will be immediately spawned.
-    pub fn new<U: Future<Output = Result<T, Box<dyn Error + Send>>> + Send + 'static>(
-        updater: U,
-    ) -> Self {
+    pub fn new<U: Future<Output = Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
         let arc = Arc::new(Mutex::new(None));
         let arc_clone = arc.clone();
         tokio::spawn(async move {
@@ -100,7 +90,7 @@ impl<T: Send> ImmediateValuePromise<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState, ToDynSendBox};
+    use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
     use std::error::Error;
     use std::fmt::{Display, Formatter};
     use std::thread;
@@ -147,7 +137,7 @@ mod test {
         Runtime::new().unwrap().block_on(async {
             let mut oneshot_val = ImmediateValuePromise::new(async {
                 let some_result = Err(TestError { code: 0 });
-                some_result.map_err(|e| e.into_boxed())?;
+                some_result?;
                 Ok("bla".to_string())
             });
             assert!(matches!(

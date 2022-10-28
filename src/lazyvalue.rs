@@ -18,7 +18,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   tx.send(Message::NewData(1337)).await.unwrap();
 ///   // how to handle results and propagate the error to the future? Use `unpack_result!`:
-///   let string = unpack_result!(std::fs::read_to_string("whatever.txt"), tx);///
+///   let string = unpack_result!(std::fs::read_to_string("whatever.txt"), tx);
 ///   tokio::time::sleep(Duration::from_millis(100)).await;
 ///   tx.send(Message::StateChange(DataState::UpToDate)).await.unwrap();
 /// };
@@ -97,12 +97,12 @@ impl<T: Debug> Promise for LazyValuePromise<T> {
     }
 
     fn update(&mut self) {
-        if self.state == DataState::Updating {
+        if matches!(self.state, DataState::Updating(_)) {
             return;
         }
         self.cache = None;
 
-        self.state = DataState::Updating;
+        self.state = DataState::Updating(0.0.into());
         let future = (self.updater)(self.tx.clone());
         tokio::spawn(future);
     }
@@ -133,7 +133,7 @@ mod test {
             //be lazy:
             assert!(delayed_value.is_uninitialized());
             //start sets updating
-            assert_eq!(*delayed_value.poll_state(), DataState::Updating);
+            assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_value.value().is_none());
             //after wait, value is there
             std::thread::sleep(Duration::from_millis(150));
@@ -141,7 +141,7 @@ mod test {
             assert_eq!(delayed_value.value().unwrap(), "1");
             //update resets
             delayed_value.update();
-            assert_eq!(*delayed_value.poll_state(), DataState::Updating);
+            assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_value.value().is_none());
             //after wait, value is there again and identical
             std::thread::sleep(Duration::from_millis(150));
@@ -161,7 +161,7 @@ mod test {
 
         Runtime::new().unwrap().block_on(async {
             let mut delayed_vec = LazyValuePromise::new(error_maker, 1);
-            assert_eq!(*delayed_vec.poll_state(), DataState::Updating);
+            assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.value().is_none());
             std::thread::sleep(Duration::from_millis(150));
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
