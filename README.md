@@ -15,3 +15,10 @@ For single values which are either available or not there's `ImmediateValuePromi
 There's not in-calculation value read out, so either it's finished or not. 
 
 Example-usage of this crate with a small egui/eframe blog-reader can be found [here](https://github.com/ChrisRega/example-blog-client/)
+
+
+Changelog:
+
+0.3.0-RC1:
+- Removed `into_boxed` trait in favor of supporting the regular `From` trait which allows direct usage of the ?-Operator in `ImmediateValuePromise`
+- Added a progress indicator for the `LazyVecPromise` and `LazyValuePromise`

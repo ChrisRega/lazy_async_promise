@@ -13,6 +13,7 @@
 #![deny(deprecated)]
 #![deny(absolute_paths_not_starting_with_crate)]
 #![deny(unstable_features)]
+#![deny(unsafe_code)]
 
 extern crate core;
 
@@ -26,7 +27,6 @@ pub use lazyvec::LazyVecPromise;
 #[doc(inline)]
 pub use immediatevalue::ImmediateValuePromise;
 pub use immediatevalue::ImmediateValueState;
-pub use immediatevalue::ToDynSendBox;
 
 #[doc(inline)]
 pub use lazyvalue::LazyValuePromise;
@@ -36,7 +36,42 @@ use std::future::Future;
 use std::pin::Pin;
 use tokio::sync::mpsc::Sender;
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+/// a f32 type which is constrained to the range of 0.0 and 1.0
+#[derive(Clone, PartialEq, Debug)]
+pub struct Progress(f64);
+
+impl<T: Into<f64>> From<T> for Progress {
+    fn from(t: T) -> Self {
+        Progress(t.into().clamp(0.0, 1.0))
+    }
+}
+
+impl Progress {
+    /// Create a Progress from a percentage
+    /// ```rust, no_run
+    /// use lazy_async_promise::Progress;
+    /// let progress_half = Progress::from_percent(50);
+    /// ```
+    ///
+    pub fn from_percent(percent: impl Into<f64>) -> Progress {
+        Self::from_fraction(percent, 100.)
+    }
+
+    /// Create a Progress from a fraction, useful for handling loops
+    /// ```rust, no_run
+    /// use lazy_async_promise::Progress;
+    /// let num_iterations = 100;
+    /// for i in 0..num_iterations {
+    ///   let progress_current = Progress::from_fraction(i, num_iterations);
+    /// }
+    /// ```
+    ///
+    pub fn from_fraction(numerator: impl Into<f64>, denominator: impl Into<f64>) -> Progress {
+        (numerator.into() / denominator.into()).into()
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
 /// Represents a processing state.
 pub enum DataState {
     /// You should never receive this, as poll automatically updates
@@ -44,7 +79,8 @@ pub enum DataState {
     /// Data is complete
     UpToDate,
     /// Data is not (completely) ready, depending on your implementation, you may be able to get partial results
-    Updating,
+    /// Embedded progress in [0,1)
+    Updating(Progress),
     /// Some error occurred
     Error(String),
 }
@@ -86,6 +122,17 @@ macro_rules! unpack_result {
     };
 }
 
+#[macro_export]
+/// Setting the given progress using a given sender.
+macro_rules! set_progress {
+    ($progress: expr, $sender: expr) => {
+        $sender
+            .send(Message::StateChange(DataState::Updating($progress)))
+            .await
+            .unwrap();
+    };
+}
+
 type BoxedFutureFactory<T> =
     Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>>;
 
@@ -97,4 +144,25 @@ fn box_future_factory<
     future_factory: U,
 ) -> BoxedFutureFactory<T> {
     Box::new(move |tx: Sender<Message<T>>| Box::pin(future_factory(tx)))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn progress_constructors() {
+        let half = Progress::from_percent(50);
+        assert_eq!(half.0, 0.5);
+        let half = Progress::from_fraction(1, 2);
+        assert_eq!(half.0, 0.5);
+    }
+
+    #[test]
+    fn progress_clamps() {
+        let minimum = Progress::from_percent(-50);
+        assert_eq!(minimum.0, 0.0);
+        let maximum = Progress::from_fraction(2, 1);
+        assert_eq!(maximum.0, 1.0);
+    }
 }
