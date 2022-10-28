@@ -1,14 +1,24 @@
 use std::error::Error;
 use std::future::Future;
+use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// Strong type to keep the boxed error. You can just deref it to get the inside box.
 pub struct BoxedSendError(Box<dyn Error + Send>);
 type FutureResult<T> = Result<T, BoxedSendError>;
 
 impl<E: Error + Send + 'static> From<E> for BoxedSendError {
     fn from(e: E) -> Self {
         BoxedSendError(Box::new(e))
+    }
+}
+
+impl Deref for BoxedSendError {
+    type Target = Box<dyn Error + Send>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -133,7 +143,11 @@ mod test {
             ));
             thread::sleep(Duration::from_millis(50));
             let result = oneshot_val.poll_state();
-            assert!(matches!(result, ImmediateValueState::Error(_)));
+            if let ImmediateValueState::Error(e) = result {
+                let _ = format!("{}", **e);
+                return;
+            }
+            unreachable!();
         });
     }
 }
