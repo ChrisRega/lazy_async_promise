@@ -136,7 +136,7 @@ mod test {
             assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_value.value().is_none());
             //after wait, value is there
-            std::thread::sleep(Duration::from_millis(150));
+            tokio::time::sleep(Duration::from_millis(150)).await;
             assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
             assert_eq!(delayed_value.value().unwrap(), "1");
             //update resets
@@ -144,7 +144,7 @@ mod test {
             assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_value.value().is_none());
             //after wait, value is there again and identical
-            std::thread::sleep(Duration::from_millis(150));
+            tokio::time::sleep(Duration::from_millis(150)).await;
             assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
             assert_eq!(delayed_value.value().unwrap(), "1");
         });
@@ -163,7 +163,7 @@ mod test {
             let mut delayed_vec = LazyValuePromise::new(error_maker, 1);
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.value().is_none());
-            std::thread::sleep(Duration::from_millis(150));
+            tokio::time::sleep(Duration::from_millis(150)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
             assert!(delayed_vec.value().is_none());
         });

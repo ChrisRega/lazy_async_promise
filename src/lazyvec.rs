@@ -144,7 +144,7 @@ mod test {
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
             // We have some numbers ready in between
-            std::thread::sleep(Duration::from_millis(80));
+            tokio::time::sleep(Duration::from_millis(80)).await;
             if let DataState::Updating(progress) = delayed_vec.poll_state() {
                 assert!(progress.as_f32() > 0.0);
                 assert!(progress.as_f32() < 1.0);
@@ -181,7 +181,7 @@ mod test {
             let mut delayed_vec = LazyVecPromise::new(error_maker, 1);
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
-            std::thread::sleep(Duration::from_millis(150));
+            tokio::time::sleep(Duration::from_millis(150)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
             assert!(delayed_vec.as_slice().is_empty());
         });
