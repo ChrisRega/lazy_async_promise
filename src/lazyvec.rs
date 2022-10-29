@@ -162,7 +162,7 @@ mod test {
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
             // finally after waiting it's full again
-            tokio::time::sleep(Duration::from_millis(150)).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
             assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
             assert_eq!(delayed_vec.as_slice().len(), 5);
         });
@@ -181,7 +181,7 @@ mod test {
             let mut delayed_vec = LazyVecPromise::new(error_maker, 1);
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
-            tokio::time::sleep(Duration::from_millis(150)).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
             assert!(delayed_vec.as_slice().is_empty());
         });
