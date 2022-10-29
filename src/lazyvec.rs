@@ -144,7 +144,7 @@ mod test {
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
             // We have some numbers ready in between
-            tokio::time::sleep(Duration::from_millis(80)).await;
+            tokio::time::sleep(Duration::from_millis(50)).await;
             if let DataState::Updating(progress) = delayed_vec.poll_state() {
                 assert!(progress.as_f32() > 0.0);
                 assert!(progress.as_f32() < 1.0);
@@ -154,7 +154,7 @@ mod test {
             }
 
             // after wait we have a result
-            tokio::time::sleep(Duration::from_millis(80)).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
             assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
             assert_eq!(delayed_vec.as_slice().len(), 5);
             // after update it's empty again
