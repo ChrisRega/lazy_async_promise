@@ -104,7 +104,6 @@ impl<T: Send> ImmediateValuePromise<T> {
 mod test {
     use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
     use std::fs::File;
-    use std::thread;
     use std::time::Duration;
     use tokio::runtime::Runtime;
 
@@ -119,7 +118,7 @@ mod test {
                 oneshot_val.poll_state(),
                 ImmediateValueState::Updating
             ));
-            thread::sleep(Duration::from_millis(100));
+            tokio::time::sleep(Duration::from_millis(100)).await;
             let result = oneshot_val.poll_state();
             if let ImmediateValueState::Success(val) = result {
                 assert_eq!(*val, 34);
@@ -141,7 +140,7 @@ mod test {
                 oneshot_val.poll_state(),
                 ImmediateValueState::Updating
             ));
-            thread::sleep(Duration::from_millis(50));
+            tokio::time::sleep(Duration::from_millis(50)).await;
             let result = oneshot_val.poll_state();
             if let ImmediateValueState::Error(e) = result {
                 let _ = format!("{}", **e);

@@ -34,7 +34,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// fn main_loop(lazy_promise: &mut LazyVecPromise<i32>) {
 ///   loop {
 ///     match lazy_promise.poll_state() {
-///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); }
+///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(50)); lazy_promise.update(); }
 ///       DataState::UpToDate   => { println!("Data complete: {:?}", lazy_promise.as_slice()); }
 ///                           _ => { println!("Getting data, might be partially ready! (part: {:?}", lazy_promise.as_slice()); }  
 ///     }
@@ -144,7 +144,7 @@ mod test {
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
             // We have some numbers ready in between
-            std::thread::sleep(Duration::from_millis(80));
+            tokio::time::sleep(Duration::from_millis(80)).await;
             if let DataState::Updating(progress) = delayed_vec.poll_state() {
                 assert!(progress.as_f32() > 0.0);
                 assert!(progress.as_f32() < 1.0);
@@ -154,7 +154,7 @@ mod test {
             }
 
             // after wait we have a result
-            std::thread::sleep(Duration::from_millis(40));
+            tokio::time::sleep(Duration::from_millis(80)).await;
             assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
             assert_eq!(delayed_vec.as_slice().len(), 5);
             // after update it's empty again
@@ -162,7 +162,7 @@ mod test {
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
             // finally after waiting it's full again
-            std::thread::sleep(Duration::from_millis(150));
+            tokio::time::sleep(Duration::from_millis(150)).await;
             assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
             assert_eq!(delayed_vec.as_slice().len(), 5);
         });
@@ -181,7 +181,7 @@ mod test {
             let mut delayed_vec = LazyVecPromise::new(error_maker, 1);
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
             assert!(delayed_vec.as_slice().is_empty());
-            std::thread::sleep(Duration::from_millis(150));
+            tokio::time::sleep(Duration::from_millis(150)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
             assert!(delayed_vec.as_slice().is_empty());
         });
