@@ -145,8 +145,14 @@ mod test {
             assert!(delayed_vec.as_slice().is_empty());
             // We have some numbers ready in between
             std::thread::sleep(Duration::from_millis(80));
-            assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.6.into()));
-            assert_eq!(delayed_vec.as_slice().len(), 4);
+            if let DataState::Updating(progress) = delayed_vec.poll_state() {
+                assert!(progress.as_f32() > 0.0);
+                assert!(progress.as_f32() < 1.0);
+                assert!(!delayed_vec.as_slice().is_empty());
+            } else {
+                panic!("Was not in updating state after waiting time");
+            }
+
             // after wait we have a result
             std::thread::sleep(Duration::from_millis(40));
             assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
