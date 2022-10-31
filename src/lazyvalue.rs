@@ -113,7 +113,7 @@ mod test {
     use super::*;
     use crate::unpack_result;
     use std::time::Duration;
-    use tokio::runtime::Runtime;
+    use tokio::runtime::{Builder, Runtime};
     use tokio::sync::mpsc::Sender;
 
     #[test]
@@ -128,26 +128,32 @@ mod test {
                 .unwrap();
         };
 
-        Runtime::new().unwrap().block_on(async {
-            let mut delayed_value = LazyValuePromise::new(string_maker, 6);
-            //be lazy:
-            assert!(delayed_value.is_uninitialized());
-            //start sets updating
-            assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
-            assert!(delayed_value.value().is_none());
-            //after wait, value is there
-            tokio::time::sleep(Duration::from_millis(150)).await;
-            assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
-            assert_eq!(delayed_value.value().unwrap(), "1");
-            //update resets
-            delayed_value.update();
-            assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
-            assert!(delayed_value.value().is_none());
-            //after wait, value is there again and identical
-            tokio::time::sleep(Duration::from_millis(150)).await;
-            assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
-            assert_eq!(delayed_value.value().unwrap(), "1");
-        });
+        Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_time()
+            .max_blocking_threads(2)
+            .build()
+            .unwrap()
+            .block_on(async {
+                let mut delayed_value = LazyValuePromise::new(string_maker, 6);
+                //be lazy:
+                assert!(delayed_value.is_uninitialized());
+                //start sets updating
+                assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
+                assert!(delayed_value.value().is_none());
+                //after wait, value is there
+                tokio::time::sleep(Duration::from_millis(150)).await;
+                assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
+                assert_eq!(delayed_value.value().unwrap(), "1");
+                //update resets
+                delayed_value.update();
+                assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
+                assert!(delayed_value.value().is_none());
+                //after wait, value is there again and identical
+                tokio::time::sleep(Duration::from_millis(150)).await;
+                assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
+                assert_eq!(delayed_value.value().unwrap(), "1");
+            });
     }
 
     #[test]
