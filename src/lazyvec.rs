@@ -148,6 +148,7 @@ mod test {
                 // start empty, polling triggers update
                 assert!(delayed_vec.is_uninitialized());
                 assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
+                println!("Slice is: {:?}", delayed_vec.as_slice());
                 assert!(delayed_vec.as_slice().is_empty());
                 // We have some numbers ready in between
                 tokio::time::sleep(Duration::from_millis(50)).await;
