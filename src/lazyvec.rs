@@ -169,7 +169,7 @@ mod test {
                 assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
                 assert!(delayed_vec.as_slice().is_empty());
                 // finally after waiting it's full again
-                tokio::time::sleep(Duration::from_millis(200)).await;
+                tokio::time::sleep(Duration::from_millis(400)).await;
                 assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
                 assert_eq!(delayed_vec.as_slice().len(), 5);
             });
