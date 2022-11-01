@@ -15,7 +15,6 @@ jobs:
         include:
         - os: ubuntu-latest
         - os: windows-latest
-        - os: macos-latest
 
     name: rust-ci ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
