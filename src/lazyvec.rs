@@ -87,10 +87,6 @@ impl<T: Debug> LazyVecPromise<T> {
 
 impl<T: Debug> Promise for LazyVecPromise<T> {
     fn poll_state(&mut self) -> &DataState {
-        if self.state == DataState::Uninitialized {
-            self.update();
-        }
-
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Message::NewData(data) => {
@@ -100,6 +96,10 @@ impl<T: Debug> Promise for LazyVecPromise<T> {
                     self.state = new_state;
                 }
             }
+        }
+
+        if self.state == DataState::Uninitialized {
+            self.update();
         }
 
         &self.state
