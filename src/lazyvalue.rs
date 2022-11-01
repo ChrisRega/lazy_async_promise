@@ -24,7 +24,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// };
 /// // direct usage:
 /// let promise = LazyValuePromise::new(updater, 10);
-///
+/// // for usage of the progress, see the docs of [`LazyVecPromise`]
 /// fn main_loop(lazy_promise: &mut  LazyValuePromise<i32>) {
 ///   loop {
 ///     match lazy_promise.poll_state() {
@@ -139,7 +139,10 @@ mod test {
                 //be lazy:
                 assert!(delayed_value.is_uninitialized());
                 //start sets updating
-                assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
+                assert_eq!(
+                    delayed_value.poll_state().get_progress().unwrap().as_f64(),
+                    0.0
+                );
                 assert!(delayed_value.value().is_none());
                 //after wait, value is there
                 tokio::time::sleep(Duration::from_millis(150)).await;
@@ -147,7 +150,10 @@ mod test {
                 assert_eq!(delayed_value.value().unwrap(), "1");
                 //update resets
                 delayed_value.update();
-                assert_eq!(*delayed_value.poll_state(), DataState::Updating(0.0.into()));
+                assert_eq!(
+                    delayed_value.poll_state().get_progress().unwrap().as_f64(),
+                    0.0
+                );
                 assert!(delayed_value.value().is_none());
                 //after wait, value is there again and identical
                 tokio::time::sleep(Duration::from_millis(150)).await;

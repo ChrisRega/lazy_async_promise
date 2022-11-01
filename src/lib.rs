@@ -37,7 +37,7 @@ use std::pin::Pin;
 use tokio::sync::mpsc::Sender;
 
 /// a f64 type which is constrained to the range of 0.0 and 1.0
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Progress(f64);
 
 impl<T: Into<f64>> From<T> for Progress {
@@ -81,6 +81,12 @@ impl Progress {
     }
 }
 
+impl Default for Progress {
+    fn default() -> Self {
+        Progress(0.0)
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 /// Represents a processing state.
 pub enum DataState {
@@ -93,6 +99,16 @@ pub enum DataState {
     Updating(Progress),
     /// Some error occurred
     Error(String),
+}
+
+impl DataState {
+    /// Yields the progress if state is `DataState::Updating` otherwise yields none, even if finished.
+    pub fn get_progress(&self) -> Option<Progress> {
+        match &self {
+            DataState::Updating(progress) => Some(*progress),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]

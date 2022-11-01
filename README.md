@@ -19,6 +19,8 @@ Example-usage of this crate with a small egui/eframe blog-reader can be found [h
 
 Changelog:
 
-0.3.0-RC1:
+0.3.0:
 - Removed `into_boxed` trait in favor of supporting the regular `From` trait which allows direct usage of the ?-Operator in `ImmediateValuePromise`
 - Added a progress indicator for the `LazyVecPromise` and `LazyValuePromise`
+- Indication is done by `Progress` strong type which ensures values between 0.0 and 1.0
+- Added CI for mac, windows and linux - had to give test-timings more leeway for mac os than on linux.
