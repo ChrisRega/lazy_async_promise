@@ -33,10 +33,12 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///
 /// fn main_loop(lazy_promise: &mut LazyVecPromise<i32>) {
 ///   loop {
-///     match lazy_promise.poll_state() {
+///     let state = lazy_promise.poll_state();
+///     let progress = state.get_progress().unwrap_or_default();
+///     match state {
 ///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(50)); lazy_promise.update(); }
 ///       DataState::UpToDate   => { println!("Data complete: {:?}", lazy_promise.as_slice()); }
-///                           _ => { println!("Getting data, might be partially ready! (part: {:?}", lazy_promise.as_slice()); }  
+///                           _ => { println!("Getting data, might be partially ready! (part: {:?} - progress: {}", lazy_promise.as_slice(), progress.as_f32()); }  
 ///     }
 ///   }
 /// }
@@ -152,13 +154,10 @@ mod test {
                 assert!(delayed_vec.as_slice().is_empty());
                 // We have some numbers ready in between
                 tokio::time::sleep(Duration::from_millis(80)).await;
-                if let DataState::Updating(progress) = delayed_vec.poll_state() {
-                    assert!(progress.as_f32() > 0.0);
-                    assert!(progress.as_f32() < 1.0);
-                    assert!(!delayed_vec.as_slice().is_empty());
-                } else {
-                    panic!("Was not in updating state after waiting time");
-                }
+                let progress = delayed_vec.poll_state().get_progress().unwrap();
+                assert!(progress.as_f32() > 0.0);
+                assert!(progress.as_f32() < 1.0);
+                assert!(!delayed_vec.as_slice().is_empty());
 
                 // after wait we have a result
                 tokio::time::sleep(Duration::from_millis(200)).await;
