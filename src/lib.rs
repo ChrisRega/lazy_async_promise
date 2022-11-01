@@ -174,5 +174,7 @@ mod test {
         assert_eq!(minimum.as_f32(), 0.0);
         let maximum = Progress::from_fraction(2, 1);
         assert_eq!(maximum.as_f64(), 1.0);
+        let progress: Progress = 2.0.into();
+        assert_eq!(progress.as_f64(), 1.0);
     }
 }
