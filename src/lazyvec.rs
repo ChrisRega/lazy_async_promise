@@ -151,7 +151,7 @@ mod test {
                 println!("Slice is: {:?}", delayed_vec.as_slice());
                 assert!(delayed_vec.as_slice().is_empty());
                 // We have some numbers ready in between
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tokio::time::sleep(Duration::from_millis(80)).await;
                 if let DataState::Updating(progress) = delayed_vec.poll_state() {
                     assert!(progress.as_f32() > 0.0);
                     assert!(progress.as_f32() < 1.0);
