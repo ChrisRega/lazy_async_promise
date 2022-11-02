@@ -19,6 +19,9 @@ Example-usage of this crate with a small egui/eframe blog-reader can be found [h
 
 Changelog:
 
+0.3.1:
+- Add better api macros for lazy structures
+
 0.3.0:
 - Removed `into_boxed` trait in favor of supporting the regular `From` trait which allows direct usage of the ?-Operator in `ImmediateValuePromise`
 - Added a progress indicator for the `LazyVecPromise` and `LazyValuePromise`
