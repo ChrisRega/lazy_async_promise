@@ -11,16 +11,16 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
+/// use lazy_async_promise::api_macros::*;
 /// use lazy_async_promise::{DataState, Message, Promise};
 /// use lazy_async_promise::LazyValuePromise;
-/// use lazy_async_promise::unpack_result;
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
-///   tx.send(Message::NewData(1337)).await.unwrap();
+///   send_data!(1337, tx);
 ///   // how to handle results and propagate the error to the future? Use `unpack_result!`:
 ///   let string = unpack_result!(std::fs::read_to_string("whatever.txt"), tx);
 ///   tokio::time::sleep(Duration::from_millis(100)).await;
-///   tx.send(Message::StateChange(DataState::UpToDate)).await.unwrap();
+///   set_finished!(tx);
 /// };
 /// // direct usage:
 /// let promise = LazyValuePromise::new(updater, 10);
@@ -111,7 +111,7 @@ impl<T: Debug> Promise for LazyValuePromise<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::unpack_result;
+    use crate::api_macros::*;
     use std::time::Duration;
     use tokio::runtime::{Builder, Runtime};
     use tokio::sync::mpsc::Sender;
@@ -120,12 +120,10 @@ mod test {
     fn basic_usage_cycle() {
         let string_maker = |tx: Sender<Message<String>>| async move {
             for i in 0..2 {
-                tx.send(Message::NewData(i.to_string())).await.unwrap();
+                send_data!(i.to_string(), tx);
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
-            tx.send(Message::StateChange(DataState::UpToDate))
-                .await
-                .unwrap();
+            set_finished!(tx);
         };
 
         Builder::new_multi_thread()
@@ -166,9 +164,7 @@ mod test {
     fn error_propagation() {
         let error_maker = |tx: Sender<Message<String>>| async move {
             let _ = unpack_result!(std::fs::read_to_string("FILE_NOT_EXISTING"), tx);
-            tx.send(Message::StateChange(DataState::UpToDate))
-                .await
-                .unwrap();
+            unreachable!();
         };
 
         Runtime::new().unwrap().block_on(async {

@@ -10,23 +10,24 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, Progress, Promise, set_progress};
+/// use lazy_async_promise::api_macros::*;
+/// use lazy_async_promise::{DataState, Message, Promise};
 /// use lazy_async_promise::LazyVecPromise;
 /// use lazy_async_promise::unpack_result;
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   const ITEM_COUNT: i32 = 100;
 ///   for i in 0..ITEM_COUNT {
-///     tx.send(Message::NewData(i)).await.unwrap();
+///     send_data!(i, tx);
 ///     set_progress!(Progress::from_fraction(i, ITEM_COUNT), tx);
 ///     // how to handle results and propagate the error to the future? Use `unpack_result!`:
 ///     let string = unpack_result!(std::fs::read_to_string("whatever.txt"), tx);
 ///     if i > 100 {
-///       tx.send(Message::StateChange(DataState::Error("loop overflow".to_owned()))).await.unwrap();
+///       set_error!("loop overflow".to_owned(), tx);
 ///     }
 ///    tokio::time::sleep(Duration::from_millis(100)).await;
 ///   }
-///   tx.send(Message::StateChange(DataState::UpToDate)).await.unwrap();
+///   set_finished!(tx);
 /// };
 /// // direct usage:
 /// let promise = LazyVecPromise::new(updater, 200);
@@ -120,7 +121,7 @@ impl<T: Debug> Promise for LazyVecPromise<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{set_progress, unpack_result, Progress};
+    use crate::api_macros::*;
     use std::time::Duration;
     use tokio::runtime::{Builder, Runtime};
     use tokio::sync::mpsc::Sender;
@@ -130,13 +131,11 @@ mod test {
         let string_maker = |tx: Sender<Message<String>>| async move {
             const COUNT: i32 = 5;
             for i in 0..COUNT {
-                tx.send(Message::NewData(i.to_string())).await.unwrap();
+                send_data!(i.to_string(), tx);
                 set_progress!(Progress::from_fraction(i, COUNT), tx);
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
-            tx.send(Message::StateChange(DataState::UpToDate))
-                .await
-                .unwrap();
+            set_finished!(tx);
         };
 
         Builder::new_multi_thread()
@@ -150,7 +149,6 @@ mod test {
                 // start empty, polling triggers update
                 assert!(delayed_vec.is_uninitialized());
                 assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
-                println!("Slice is: {:?}", delayed_vec.as_slice());
                 assert!(delayed_vec.as_slice().is_empty());
                 // We have some numbers ready in between
                 tokio::time::sleep(Duration::from_millis(80)).await;
@@ -175,12 +173,10 @@ mod test {
     }
 
     #[test]
-    fn error_propagation() {
+    fn error_propagation_returns_early() {
         let error_maker = |tx: Sender<Message<String>>| async move {
             let _ = unpack_result!(std::fs::read_to_string("NOT_EXISTING"), tx);
-            tx.send(Message::StateChange(DataState::UpToDate))
-                .await
-                .unwrap();
+            unreachable!();
         };
 
         Runtime::new().unwrap().block_on(async {
