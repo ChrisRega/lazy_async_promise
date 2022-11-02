@@ -10,10 +10,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::api_macros::*;
-/// use lazy_async_promise::{DataState, Message, Promise};
-/// use lazy_async_promise::LazyVecPromise;
-/// use lazy_async_promise::unpack_result;
+/// use lazy_async_promise::{DataState, Message, Promise, LazyVecPromise, api_macros::*};
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   const ITEM_COUNT: i32 = 100;
