@@ -46,6 +46,16 @@ impl<T: Into<f64>> From<T> for Progress {
     }
 }
 
+/// Use this to get all macros
+pub mod api_macros {
+    pub use crate::send_data;
+    pub use crate::set_error;
+    pub use crate::set_finished;
+    pub use crate::set_progress;
+    pub use crate::unpack_result;
+    pub use crate::Progress;
+}
+
 impl Progress {
     /// Create a Progress from a percentage
     /// ```rust, no_run
@@ -138,10 +148,7 @@ macro_rules! unpack_result {
         match $result {
             Ok(val) => val,
             Err(e) => {
-                $sender
-                    .send(Message::StateChange(DataState::Error(format!("{}", e))))
-                    .await
-                    .unwrap();
+                set_error!(format!("{}", e), $sender);
                 return;
             }
         }
@@ -154,6 +161,36 @@ macro_rules! set_progress {
     ($progress: expr, $sender: expr) => {
         $sender
             .send(Message::StateChange(DataState::Updating($progress)))
+            .await
+            .unwrap();
+    };
+}
+
+#[macro_export]
+/// Setting the given progress using a given sender.
+macro_rules! set_error {
+    ($error: expr, $sender: expr) => {
+        $sender
+            .send(Message::StateChange(DataState::Error($error)))
+            .await
+            .unwrap();
+    };
+}
+
+#[macro_export]
+/// Send new data via the sender
+macro_rules! send_data {
+    ($data: expr, $sender: expr) => {
+        $sender.send(Message::NewData($data)).await.unwrap();
+    };
+}
+
+#[macro_export]
+/// Set state to `DataState::UpToDate`
+macro_rules! set_finished {
+    ($sender: expr) => {
+        $sender
+            .send(Message::StateChange(DataState::UpToDate))
             .await
             .unwrap();
     };
