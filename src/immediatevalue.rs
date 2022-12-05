@@ -68,6 +68,16 @@ pub enum ImmediateValueState<T> {
     Error(BoxedSendError),
 }
 
+impl<T> ImmediateValueState<T> {
+    /// gets a mutable reference to the local cache if existing
+    pub fn as_mut(&mut self) -> Option<&mut T> {
+        match self {
+            ImmediateValueState::Success(payload) => Some(payload),
+            _ => None,
+        }
+    }
+}
+
 impl<T: Send> ImmediateValuePromise<T> {
     /// Creator, supply a future which returns `Result<T, Box<dyn Error + Send>`. Will be immediately spawned via tokio.
     pub fn new<U: Future<Output = Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
@@ -97,6 +107,12 @@ impl<T: Send> ImmediateValuePromise<T> {
             }
         }
         &self.state
+    }
+
+    /// Poll the state, return a mutable ref to to the state
+    pub fn poll_state_mut(&mut self) -> &mut ImmediateValueState<T> {
+        let _ = self.poll_state();
+        &mut self.state
     }
 }
 
