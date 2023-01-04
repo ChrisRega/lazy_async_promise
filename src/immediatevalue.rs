@@ -262,14 +262,27 @@ mod test {
                 Ok("bla".to_string())
             });
             tokio::time::sleep(Duration::from_millis(50)).await;
-
-            // get value does not trigger any polling
-            let result = oneshot_val.poll_state_mut();
-            // we got the value
-            assert!(result.as_mut().is_some());
-            // take it out
-            let value = result.take();
-            assert_eq!(value.unwrap().as_str(), "bla");
+            {
+                // get value does not trigger any polling
+                let result = oneshot_val.poll_state_mut();
+                // we got the value
+                if let Some(inner) = result.as_mut() {
+                    assert_eq!(inner, "bla");
+                    // write back
+                    *inner = "changed".to_string();
+                }
+                else {
+                    unreachable!();
+                }
+                let result = oneshot_val.poll_state_mut();
+                // take it out, should be changed and owned
+                let value = result.take();
+                assert_eq!(value.unwrap().as_str(), "changed");
+                assert!(matches!(result, ImmediateValueState::Empty));
+            }
+            // afterwards we are empty on get and poll
+            assert!(matches!(oneshot_val.get_state(), ImmediateValueState::Empty));
+            assert!(matches!(oneshot_val.poll_state(), ImmediateValueState::Empty));
         });
     }
 }
