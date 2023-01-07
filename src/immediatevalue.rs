@@ -33,7 +33,7 @@ impl Deref for BoxedSendError {
 /// Another useful feature after calculation is finished,
 /// is that you can use [`ImmediateValuePromise::poll_mut`] to get a mutable [`ImmediateValueState`]
 /// which allows you to take ownership of inner values with [`ImmediateValueState::take`] or get a mutable reference
-/// to the inner via [`ImmediateValueState::as_mut`].
+/// to the inner via [`ImmediateValueState::get_value_mut`].
 /// ## Examples
 /// ### Basic usage
 /// ```rust, no_run
@@ -84,7 +84,7 @@ impl Deref for BoxedSendError {
 /// else {
 ///   unreachable!();
 /// }
-/// assert!(result.as_mut().is_some());
+/// assert!(result.get_value_mut().is_some());
 /// // take it out
 /// let value = result.take();
 /// assert_eq!(value.unwrap(), 32);
@@ -108,14 +108,14 @@ pub enum ImmediateValueState<T> {
 
 impl<T> ImmediateValueState<T> {
     /// gets a mutable reference to the local cache if existing
-    pub fn as_mut(&mut self) -> Option<&mut T> {
+    pub fn get_value_mut(&mut self) -> Option<&mut T> {
         match self {
             ImmediateValueState::Success(payload) => Some(payload),
             _ => None,
         }
     }
     /// Get the value if possible, [`None`] otherwise
-    pub fn get_inner(&self) -> Option<&T> {
+    pub fn get_value(&self) -> Option<&T> {
         if let ImmediateValueState::Success(inner) = self {
             Some(inner)
         }
@@ -251,7 +251,7 @@ mod test {
             ));
 
             let polled = oneshot_val.poll_state();
-            assert_eq!(polled.get_inner().unwrap(), "bla");
+            assert_eq!(polled.get_value().unwrap(), "bla");
         });
     }
 
@@ -266,7 +266,7 @@ mod test {
                 // get value does not trigger any polling
                 let result = oneshot_val.poll_state_mut();
                 // we got the value
-                if let Some(inner) = result.as_mut() {
+                if let Some(inner) = result.get_value_mut() {
                     assert_eq!(inner, "bla");
                     // write back
                     *inner = "changed".to_string();

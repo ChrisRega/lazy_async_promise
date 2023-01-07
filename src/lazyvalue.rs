@@ -27,8 +27,8 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///   loop {
 ///     match lazy_promise.poll_state() {
 ///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); }
-///       DataState::UpToDate   => { println!("Value up2date: {}", lazy_promise.value().unwrap()); }
-///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.value()); }  
+///       DataState::UpToDate   => { println!("Value up2date: {}", lazy_promise.get_value().unwrap()); }
+///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.get_value()); }
 ///     }
 ///   }
 /// }
@@ -64,8 +64,25 @@ impl<T: Debug> LazyValuePromise<T> {
     }
 
     /// get current value, may be incomplete depending on status
-    pub fn value(&self) -> Option<&T> {
+    pub fn get_value(&self) -> Option<&T> {
         self.cache.as_ref()
+    }
+
+    /// get current value (may be incomplete) as mutable ref, be careful with this as
+    /// further modification from the future may still push data.
+    pub fn get_value_mut(&mut self) -> Option<&mut T> {self.cache.as_mut()}
+
+
+    /// takes the current value, if data was [`DataState::UpToDate`] it returns the value and sets the state to
+    /// [`DataState::Uninitialized`]. Otherwise, returns None.
+    pub fn take_value(&mut self) -> Option<T> {
+        if self.state ==  DataState::UpToDate {
+            self.state = DataState::Uninitialized;
+            self.cache.take()
+        }
+        else {
+            None
+        }
     }
 
     #[cfg(test)]
@@ -139,22 +156,22 @@ mod test {
                     delayed_value.poll_state().get_progress().unwrap().as_f64(),
                     0.0
                 );
-                assert!(delayed_value.value().is_none());
+                assert!(delayed_value.get_value().is_none());
                 //after wait, value is there
                 tokio::time::sleep(Duration::from_millis(150)).await;
                 assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
-                assert_eq!(delayed_value.value().unwrap(), "1");
+                assert_eq!(delayed_value.get_value().unwrap(), "1");
                 //update resets
                 delayed_value.update();
                 assert_eq!(
                     delayed_value.poll_state().get_progress().unwrap().as_f64(),
                     0.0
                 );
-                assert!(delayed_value.value().is_none());
+                assert!(delayed_value.get_value().is_none());
                 //after wait, value is there again and identical
                 tokio::time::sleep(Duration::from_millis(150)).await;
                 assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
-                assert_eq!(delayed_value.value().unwrap(), "1");
+                assert_eq!(delayed_value.get_value().unwrap(), "1");
             });
     }
 
@@ -168,10 +185,10 @@ mod test {
         Runtime::new().unwrap().block_on(async {
             let mut delayed_vec = LazyValuePromise::new(error_maker, 1);
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
-            assert!(delayed_vec.value().is_none());
+            assert!(delayed_vec.get_value().is_none());
             tokio::time::sleep(Duration::from_millis(150)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
-            assert!(delayed_vec.value().is_none());
+            assert!(delayed_vec.get_value().is_none());
         });
     }
 }

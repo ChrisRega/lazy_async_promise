@@ -100,7 +100,7 @@ impl Default for Progress {
 #[derive(Clone, PartialEq, Debug)]
 /// Represents a processing state.
 pub enum DataState {
-    /// You should never receive this, as poll automatically updates
+    /// You can only receive this after taking ownership of the data
     Uninitialized,
     /// Data is complete
     UpToDate,

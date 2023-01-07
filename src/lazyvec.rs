@@ -1,6 +1,7 @@
 use crate::{box_future_factory, BoxedFutureFactory, DataState, Message, Promise};
 use std::fmt::Debug;
 use std::future::Future;
+use std::mem;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 /// # A lazy, async and partially readable vector promise
@@ -75,6 +76,22 @@ impl<T: Debug> LazyVecPromise<T> {
     /// get current data as slice, may be incomplete depending on status
     pub fn as_slice(&self) -> &[T] {
         self.data.as_slice()
+    }
+
+    /// Get the current data as mutable slice
+    pub fn as_slice_mut(&mut self) -> &mut[T] { self.data.as_mut_slice() }
+
+    /// Take the current data. If state was  [`DataState::UpToDate`] it will return the value.
+    /// If the state was anything else, it will return None. If data is taken successfully, will leave
+    /// the object in state [`DataState::Uninitialized`]
+    pub fn take(&mut self) -> Option<Vec<T>> {
+        if self.state == DataState::UpToDate {
+            self.state = DataState::Uninitialized;
+            Some(mem::take(&mut self.data))
+        }
+        else {
+            None
+        }
     }
 
     #[cfg(test)]
