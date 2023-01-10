@@ -115,7 +115,7 @@ impl Deref for BoxedSendError {
 /// let value_opt = state.promise.as_ref().and_then(|i| i.get_value()); // <- better, but still ugly
 /// let value_opt = state.promise.get_value(); // <- way nicer!
 /// assert!(value_opt.is_some());
-/// assert_eq!(value_opt.unwrap(), 34);
+/// assert_eq!(*value_opt.unwrap(), 34);
 /// ```
 ///
 pub struct ImmediateValuePromise<T: Send + 'static> {
