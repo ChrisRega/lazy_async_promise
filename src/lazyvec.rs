@@ -1,4 +1,6 @@
-use crate::{box_future_factory, BoxedFutureFactory, DataState, Message, Promise};
+use crate::{
+    box_future_factory, BoxedFutureFactory, DataState, DirectCacheAccess, Message, Promise,
+};
 use std::fmt::Debug;
 use std::future::Future;
 use std::mem;
@@ -79,24 +81,35 @@ impl<T: Debug> LazyVecPromise<T> {
     }
 
     /// Get the current data as mutable slice
-    pub fn as_slice_mut(&mut self) -> &mut[T] { self.data.as_mut_slice() }
-
-    /// Take the current data. If state was  [`DataState::UpToDate`] it will return the value.
-    /// If the state was anything else, it will return None. If data is taken successfully, will leave
-    /// the object in state [`DataState::Uninitialized`]
-    pub fn take(&mut self) -> Option<Vec<T>> {
-        if self.state == DataState::UpToDate {
-            self.state = DataState::Uninitialized;
-            Some(mem::take(&mut self.data))
-        }
-        else {
-            None
-        }
+    pub fn as_slice_mut(&mut self) -> &mut [T] {
+        self.data.as_mut_slice()
     }
 
     #[cfg(test)]
     pub fn is_uninitialized(&self) -> bool {
         self.state == DataState::Uninitialized
+    }
+}
+
+impl<T: Debug> DirectCacheAccess<Vec<T>> for LazyVecPromise<T> {
+    fn get_value_mut(&mut self) -> Option<&mut Vec<T>> {
+        Some(&mut self.data)
+    }
+
+    fn get_value(&self) -> Option<&Vec<T>> {
+        Some(&self.data)
+    }
+
+    /// Take the current data. If state was  [`DataState::UpToDate`] it will return the value.
+    /// If the state was anything else, it will return None. If data is taken successfully, will leave
+    /// the object in state [`DataState::Uninitialized`]
+    fn take(&mut self) -> Option<Vec<T>> {
+        if self.state == DataState::UpToDate {
+            self.state = DataState::Uninitialized;
+            Some(mem::take(&mut self.data))
+        } else {
+            None
+        }
     }
 }
 

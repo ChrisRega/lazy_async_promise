@@ -1,4 +1,6 @@
-use crate::{box_future_factory, BoxedFutureFactory, DataState, Message, Promise};
+use crate::{
+    box_future_factory, BoxedFutureFactory, DataState, DirectCacheAccess, Message, Promise,
+};
 use std::fmt::Debug;
 use std::future::Future;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -11,7 +13,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, Promise, LazyValuePromise, api_macros::*};
+/// use lazy_async_promise::{DirectCacheAccess, DataState, Message, Promise, LazyValuePromise, api_macros::*};
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   send_data!(1337, tx);
@@ -63,31 +65,33 @@ impl<T: Debug> LazyValuePromise<T> {
         }
     }
 
-    /// get current value, may be incomplete depending on status
-    pub fn get_value(&self) -> Option<&T> {
-        self.cache.as_ref()
-    }
-
-    /// get current value (may be incomplete) as mutable ref, be careful with this as
-    /// further modification from the future may still push data.
-    pub fn get_value_mut(&mut self) -> Option<&mut T> {self.cache.as_mut()}
-
-
-    /// takes the current value, if data was [`DataState::UpToDate`] it returns the value and sets the state to
-    /// [`DataState::Uninitialized`]. Otherwise, returns None.
-    pub fn take_value(&mut self) -> Option<T> {
-        if self.state ==  DataState::UpToDate {
-            self.state = DataState::Uninitialized;
-            self.cache.take()
-        }
-        else {
-            None
-        }
-    }
-
     #[cfg(test)]
     pub fn is_uninitialized(&self) -> bool {
         self.state == DataState::Uninitialized
+    }
+}
+
+impl<T: Debug> DirectCacheAccess<T> for LazyValuePromise<T> {
+    /// get current value (may be incomplete) as mutable ref, be careful with this as
+    /// further modification from the future may still push data.
+    fn get_value_mut(&mut self) -> Option<&mut T> {
+        self.cache.as_mut()
+    }
+
+    /// get current value, may be incomplete depending on status
+    fn get_value(&self) -> Option<&T> {
+        self.cache.as_ref()
+    }
+
+    /// takes the current value, if data was [`DataState::UpToDate`] it returns the value and sets the state to
+    /// [`DataState::Uninitialized`]. Otherwise, returns None.
+    fn take(&mut self) -> Option<T> {
+        if self.state == DataState::UpToDate {
+            self.state = DataState::Uninitialized;
+            self.cache.take()
+        } else {
+            None
+        }
     }
 }
 

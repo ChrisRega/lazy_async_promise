@@ -1,3 +1,4 @@
+use crate::DirectCacheAccess;
 use std::error::Error;
 use std::future::Future;
 use std::mem;
@@ -31,7 +32,7 @@ impl Deref for BoxedSendError {
 /// After the calculation is done, `ImmediateValuePromise<T>` can be read out without mutability requirement using
 /// [`ImmediateValuePromise::get_state`] which also yields an [`ImmediateValueState`] but without requiring `mut`.
 /// Another useful feature after calculation is finished,
-/// is that you can use [`ImmediateValuePromise::poll_mut`] to get a mutable [`ImmediateValueState`]
+/// is that you can use [`ImmediateValuePromise::poll_state_mut`] to get a mutable [`ImmediateValueState`]
 /// which allows you to take ownership of inner values with [`ImmediateValueState::take`] or get a mutable reference
 /// to the inner via [`ImmediateValueState::get_value_mut`].
 /// ## Examples
@@ -67,7 +68,7 @@ impl Deref for BoxedSendError {
 /// ```rust, no_run
 /// use std::thread;
 /// use std::time::Duration;
-/// use lazy_async_promise::{ImmediateValuePromise, ImmediateValueState};
+/// use lazy_async_promise::{DirectCacheAccess, ImmediateValuePromise, ImmediateValueState};
 /// let mut oneshot_val = ImmediateValuePromise::new(async {
 ///     Ok(34)
 /// });
@@ -89,6 +90,34 @@ impl Deref for BoxedSendError {
 /// let value = result.take();
 /// assert_eq!(value.unwrap(), 32);
 /// ```
+/// ### Optional laziness
+/// `Option<ImmediateValuePromise>` is a nice way to implement laziness with `get_or_insert`
+///  or `get_or_insert_with`. Unfortunately, using these constructs becomes cumbersome.
+/// To ease the pain, we blanket-implement [`DirectCacheAccess`] for any [`Option<DirectCacheAccess>`].
+///
+/// ```rust, no_run
+/// use std::thread;
+/// use std::time::Duration;
+/// use lazy_async_promise::{DirectCacheAccess, ImmediateValuePromise};
+/// #[derive(Default)]
+/// struct State {
+///   promise: Option<ImmediateValuePromise<i32>>
+/// }
+///
+/// let mut state = State::default();
+/// let promise_ref = state.promise.get_or_insert_with(|| ImmediateValuePromise::new(async {
+///     Ok(34)
+/// }));
+/// promise_ref.poll_state();
+/// thread::sleep(Duration::from_millis(50));
+/// //now let's assume we forgot about our lease already and want to get the value again:
+/// let value_opt = state.promise.as_ref().unwrap().get_value(); // <- don't do this
+/// let value_opt = state.promise.as_ref().and_then(|i| i.get_value()); // <- better, but still ugly
+/// let value_opt = state.promise.get_value(); // <- way nicer!
+/// assert!(value_opt.is_some());
+/// assert_eq!(value_opt.unwrap(), 34);
+/// ```
+///
 pub struct ImmediateValuePromise<T: Send + 'static> {
     value_arc: Arc<Mutex<Option<FutureResult<T>>>>,
     state: ImmediateValueState<T>,
@@ -106,35 +135,46 @@ pub enum ImmediateValueState<T> {
     Empty,
 }
 
-impl<T> ImmediateValueState<T> {
+impl<T> DirectCacheAccess<T> for ImmediateValueState<T> {
     /// gets a mutable reference to the local cache if existing
-    pub fn get_value_mut(&mut self) -> Option<&mut T> {
+    fn get_value_mut(&mut self) -> Option<&mut T> {
         match self {
             ImmediateValueState::Success(payload) => Some(payload),
             _ => None,
         }
     }
     /// Get the value if possible, [`None`] otherwise
-    pub fn get_value(&self) -> Option<&T> {
+    fn get_value(&self) -> Option<&T> {
         if let ImmediateValueState::Success(inner) = self {
             Some(inner)
-        }
-        else {
+        } else {
             None
         }
     }
 
     /// Takes ownership of the inner value if ready, leaving self in state [`ImmediateValueState::Empty`].
     /// Does nothing if we are in any other state.
-    pub fn take(&mut self) -> Option<T> {
+    fn take(&mut self) -> Option<T> {
         if matches!(self, ImmediateValueState::Success(_)) {
             let val = mem::replace(self, ImmediateValueState::Empty);
             return match val {
-                ImmediateValueState::Success(inner) => { Some(inner) },
-                _ => { None }
-            }
+                ImmediateValueState::Success(inner) => Some(inner),
+                _ => None,
+            };
         }
         None
+    }
+}
+
+impl<T: Send + 'static> DirectCacheAccess<T> for ImmediateValuePromise<T> {
+    fn get_value_mut(&mut self) -> Option<&mut T> {
+        self.state.get_value_mut()
+    }
+    fn get_value(&self) -> Option<&T> {
+        self.state.get_value()
+    }
+    fn take(&mut self) -> Option<T> {
+        self.state.take()
     }
 }
 
@@ -184,6 +224,7 @@ impl<T: Send> ImmediateValuePromise<T> {
 #[cfg(test)]
 mod test {
     use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
+    use crate::DirectCacheAccess;
     use std::fs::File;
     use std::time::Duration;
     use tokio::runtime::Runtime;
@@ -234,21 +275,13 @@ mod test {
     #[test]
     fn get_state() {
         Runtime::new().unwrap().block_on(async {
-            let mut oneshot_val = ImmediateValuePromise::new(async {
-                Ok("bla".to_string())
-            });
+            let mut oneshot_val = ImmediateValuePromise::new(async { Ok("bla".to_string()) });
             // get value does not trigger any polling
             let state = oneshot_val.get_state();
-            assert!(matches!(
-                state,
-                ImmediateValueState::Updating
-            ));
+            assert!(matches!(state, ImmediateValueState::Updating));
             tokio::time::sleep(Duration::from_millis(50)).await;
             let state = oneshot_val.get_state();
-            assert!(matches!(
-                state,
-                ImmediateValueState::Updating
-            ));
+            assert!(matches!(state, ImmediateValueState::Updating));
 
             let polled = oneshot_val.poll_state();
             assert_eq!(polled.get_value().unwrap(), "bla");
@@ -258,9 +291,7 @@ mod test {
     #[test]
     fn get_mut_take_value() {
         Runtime::new().unwrap().block_on(async {
-            let mut oneshot_val = ImmediateValuePromise::new(async {
-                Ok("bla".to_string())
-            });
+            let mut oneshot_val = ImmediateValuePromise::new(async { Ok("bla".to_string()) });
             tokio::time::sleep(Duration::from_millis(50)).await;
             {
                 // get value does not trigger any polling
@@ -270,8 +301,7 @@ mod test {
                     assert_eq!(inner, "bla");
                     // write back
                     *inner = "changed".to_string();
-                }
-                else {
+                } else {
                     unreachable!();
                 }
                 let result = oneshot_val.poll_state_mut();
@@ -281,8 +311,26 @@ mod test {
                 assert!(matches!(result, ImmediateValueState::Empty));
             }
             // afterwards we are empty on get and poll
-            assert!(matches!(oneshot_val.get_state(), ImmediateValueState::Empty));
-            assert!(matches!(oneshot_val.poll_state(), ImmediateValueState::Empty));
+            assert!(matches!(
+                oneshot_val.get_state(),
+                ImmediateValueState::Empty
+            ));
+            assert!(matches!(
+                oneshot_val.poll_state(),
+                ImmediateValueState::Empty
+            ));
+        });
+    }
+
+    #[test]
+    fn option_laziness() {
+        use crate::*;
+        Runtime::new().unwrap().block_on(async {
+            let mut option = Some(ImmediateValuePromise::new(async { Ok("bla".to_string()) }));
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            option.as_mut().unwrap().poll_state();
+            let inner = option.get_value();
+            assert_eq!(inner.unwrap(), "bla");
         });
     }
 }
