@@ -93,7 +93,7 @@ impl Deref for BoxedSendError {
 /// ### Optional laziness
 /// `Option<ImmediateValuePromise>` is a nice way to implement laziness with `get_or_insert`
 ///  or `get_or_insert_with`. Unfortunately, using these constructs becomes cumbersome.
-/// To ease the pain, we blanket-implement [`DirectCacheAccess`] for any [`Option<DirectCacheAccess>`].
+/// To ease the pain, we blanket-implement [`DirectCacheAccess`] for any [`Option<DirectCacheAccess<T>>`].
 ///
 /// ```rust, no_run
 /// use std::thread;
