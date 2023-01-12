@@ -33,7 +33,7 @@ impl Deref for BoxedSendError {
 /// [`ImmediateValuePromise::get_state`] which also yields an [`ImmediateValueState`] but without requiring `mut`.
 /// Another useful feature after calculation is finished,
 /// is that you can use [`ImmediateValuePromise::poll_state_mut`] to get a mutable [`ImmediateValueState`]
-/// which allows you to take ownership of inner values with [`ImmediateValueState::take_inner`] or get a mutable reference
+/// which allows you to take ownership of inner values with [`ImmediateValueState::take_value`] or get a mutable reference
 /// to the inner via [`ImmediateValueState::get_value_mut`].
 /// ## Examples
 /// ### Basic usage
@@ -87,7 +87,7 @@ impl Deref for BoxedSendError {
 /// }
 /// assert!(result.get_value_mut().is_some());
 /// // take it out
-/// let value = result.take_inner();
+/// let value = result.take_value();
 /// assert_eq!(value.unwrap(), 32);
 /// ```
 /// ### Optional laziness
@@ -154,7 +154,7 @@ impl<T> DirectCacheAccess<T> for ImmediateValueState<T> {
 
     /// Takes ownership of the inner value if ready, leaving self in state [`ImmediateValueState::Empty`].
     /// Does nothing if we are in any other state.
-    fn take_inner(&mut self) -> Option<T> {
+    fn take_value(&mut self) -> Option<T> {
         if matches!(self, ImmediateValueState::Success(_)) {
             let val = mem::replace(self, ImmediateValueState::Empty);
             return match val {
@@ -173,8 +173,8 @@ impl<T: Send + 'static> DirectCacheAccess<T> for ImmediateValuePromise<T> {
     fn get_value(&self) -> Option<&T> {
         self.state.get_value()
     }
-    fn take_inner(&mut self) -> Option<T> {
-        self.state.take_inner()
+    fn take_value(&mut self) -> Option<T> {
+        self.state.take_value()
     }
 }
 
@@ -306,7 +306,7 @@ mod test {
                 }
                 let result = oneshot_val.poll_state_mut();
                 // take it out, should be changed and owned
-                let value = result.take_inner();
+                let value = result.take_value();
                 assert_eq!(value.unwrap().as_str(), "changed");
                 assert!(matches!(result, ImmediateValueState::Empty));
             }
@@ -331,12 +331,12 @@ mod test {
             option.as_mut().unwrap().poll_state();
             let _inner = option.get_value();
             let _inner_mut = option.get_value_mut();
-            let inner_owned = option.take_inner().unwrap();
+            let inner_owned = option.take_value().unwrap();
             assert_eq!(inner_owned, "bla");
             // after value is taken, we can't borrow it again
             assert!(option.get_value().is_none());
             assert!(option.get_value_mut().is_none());
-            assert!(option.take_inner().is_none());
+            assert!(option.take_value().is_none());
         });
     }
 }

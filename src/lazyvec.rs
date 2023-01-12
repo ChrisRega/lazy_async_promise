@@ -103,7 +103,7 @@ impl<T: Debug> DirectCacheAccess<Vec<T>> for LazyVecPromise<T> {
     /// Take the current data. If state was  [`DataState::UpToDate`] it will return the value.
     /// If the state was anything else, it will return None. If data is taken successfully, will leave
     /// the object in state [`DataState::Uninitialized`]
-    fn take_inner(&mut self) -> Option<Vec<T>> {
+    fn take_value(&mut self) -> Option<Vec<T>> {
         if self.state == DataState::UpToDate {
             self.state = DataState::Uninitialized;
             Some(mem::take(&mut self.data))
@@ -242,7 +242,7 @@ mod test {
             assert_eq!(val.unwrap().len(), 1);
             assert_eq!(*val.unwrap().first().unwrap(), 42);
             let _val_mut = delayed_vec.get_value_mut();
-            let value_owned = delayed_vec.take_inner().unwrap();
+            let value_owned = delayed_vec.take_value().unwrap();
             assert_eq!(*value_owned.first().unwrap(), 42);
             assert!(delayed_vec.is_uninitialized());
         });
