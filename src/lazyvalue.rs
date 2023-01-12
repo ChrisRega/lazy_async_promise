@@ -85,7 +85,7 @@ impl<T: Debug> DirectCacheAccess<T> for LazyValuePromise<T> {
 
     /// takes the current value, if data was [`DataState::UpToDate`] it returns the value and sets the state to
     /// [`DataState::Uninitialized`]. Otherwise, returns None.
-    fn take_inner(&mut self) -> Option<T> {
+    fn take_value(&mut self) -> Option<T> {
         if self.state == DataState::UpToDate {
             self.state = DataState::Uninitialized;
             self.cache.take()
@@ -214,7 +214,7 @@ mod test {
             let val = delayed_value.get_value();
             assert_eq!(*val.unwrap(), 42);
             let _val_mut = delayed_value.get_value_mut();
-            let value_owned = delayed_value.take_inner().unwrap();
+            let value_owned = delayed_value.take_value().unwrap();
             assert_eq!(value_owned, 42);
             assert!(delayed_value.is_uninitialized());
         });
