@@ -43,7 +43,7 @@ pub trait DirectCacheAccess<T> {
     /// returns a reference to the cache if applicable
     fn get_value(&self) -> Option<&T>;
     /// takes the value and leaves the promise in a valid state indicating its emptiness
-    fn take(&mut self) -> Option<T>;
+    fn take_inner(&mut self) -> Option<T>;
 }
 
 /// Blanket implementation for any `Option<DirectCacheAccess<T>>` allows for better handling of option-laziness
@@ -54,8 +54,8 @@ impl<T: Send + 'static, A: DirectCacheAccess<T>> DirectCacheAccess<T> for Option
     fn get_value(&self) -> Option<&T> {
         self.as_ref().and_then(|inner| inner.get_value())
     }
-    fn take(&mut self) -> Option<T> {
-        self.as_mut().and_then(|inner| inner.take())
+    fn take_inner(&mut self) -> Option<T> {
+        self.as_mut().and_then(|inner| inner.take_inner())
     }
 }
 
@@ -110,7 +110,7 @@ impl Progress {
 
     /// return progress as f64
     pub fn as_f64(&self) -> f64 {
-        self.0 as f64
+        self.0
     }
 }
 

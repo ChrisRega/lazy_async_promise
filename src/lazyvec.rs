@@ -103,7 +103,7 @@ impl<T: Debug> DirectCacheAccess<Vec<T>> for LazyVecPromise<T> {
     /// Take the current data. If state was  [`DataState::UpToDate`] it will return the value.
     /// If the state was anything else, it will return None. If data is taken successfully, will leave
     /// the object in state [`DataState::Uninitialized`]
-    fn take(&mut self) -> Option<Vec<T>> {
+    fn take_inner(&mut self) -> Option<Vec<T>> {
         if self.state == DataState::UpToDate {
             self.state = DataState::Uninitialized;
             Some(mem::take(&mut self.data))
@@ -213,6 +213,29 @@ mod test {
             tokio::time::sleep(Duration::from_millis(200)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
             assert!(delayed_vec.as_slice().is_empty());
+        });
+    }
+
+    #[test]
+    fn test_direct_cache_access() {
+        let int_maker = |tx: Sender<Message<i32>>| async move {
+            send_data!(42, tx);
+            set_finished!(tx);
+        };
+
+        Runtime::new().unwrap().block_on(async {
+            let mut delayed_vec = LazyVecPromise::new(int_maker, 6);
+            let _ = delayed_vec.poll_state();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let poll_result = delayed_vec.poll_state();
+            assert!(matches!(poll_result, DataState::UpToDate));
+            let val = delayed_vec.get_value();
+            assert_eq!(val.unwrap().len(), 1);
+            assert_eq!(*val.unwrap().first().unwrap(), 42);
+            let _val_mut = delayed_vec.get_value_mut();
+            let value_owned = delayed_vec.take_inner().unwrap();
+            assert_eq!(*value_owned.first().unwrap(), 42);
+            assert!(delayed_vec.is_uninitialized());
         });
     }
 }
