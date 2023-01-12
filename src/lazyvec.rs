@@ -177,25 +177,33 @@ mod test {
                 assert!(delayed_vec.is_uninitialized());
                 assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
                 assert!(delayed_vec.as_slice().is_empty());
+                assert!(delayed_vec.as_slice_mut().is_empty());
+
                 // We have some numbers ready in between
                 tokio::time::sleep(Duration::from_millis(80)).await;
                 let progress = delayed_vec.poll_state().get_progress().unwrap();
                 assert!(progress.as_f32() > 0.0);
                 assert!(progress.as_f32() < 1.0);
                 assert!(!delayed_vec.as_slice().is_empty());
+                assert!(!delayed_vec.as_slice_mut().is_empty());
 
                 // after wait we have a result
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
                 assert_eq!(delayed_vec.as_slice().len(), 5);
+                assert_eq!(delayed_vec.as_slice_mut().len(), 5);
+
                 // after update it's empty again
                 delayed_vec.update();
                 assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
                 assert!(delayed_vec.as_slice().is_empty());
+                assert!(delayed_vec.as_slice_mut().is_empty());
+
                 // finally after waiting it's full again
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 assert_eq!(*delayed_vec.poll_state(), DataState::UpToDate);
                 assert_eq!(delayed_vec.as_slice().len(), 5);
+                assert_eq!(delayed_vec.as_slice_mut().len(), 5);
             });
     }
 

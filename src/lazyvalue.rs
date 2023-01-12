@@ -175,6 +175,7 @@ mod test {
                 //after wait, value is there again and identical
                 tokio::time::sleep(Duration::from_millis(150)).await;
                 assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
+                assert!(delayed_value.poll_state().get_progress().is_none());
                 assert_eq!(delayed_value.get_value().unwrap(), "1");
             });
     }

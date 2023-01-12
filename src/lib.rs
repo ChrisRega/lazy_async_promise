@@ -253,4 +253,9 @@ mod test {
         let progress: Progress = 2.0.into();
         assert_eq!(progress.as_f64(), 1.0);
     }
+
+    #[test]
+    fn default_progress_is_start() {
+        assert_eq!(Progress::default().as_f64(), 0.0);
+    }
 }

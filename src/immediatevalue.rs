@@ -333,6 +333,10 @@ mod test {
             let _inner_mut = option.get_value_mut();
             let inner_owned = option.take_inner().unwrap();
             assert_eq!(inner_owned, "bla");
+            // after value is taken, we can't borrow it again
+            assert!(option.get_value().is_none());
+            assert!(option.get_value_mut().is_none());
+            assert!(option.take_inner().is_none());
         });
     }
 }
