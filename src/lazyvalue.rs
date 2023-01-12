@@ -139,6 +139,7 @@ mod test {
     fn basic_usage_cycle() {
         let string_maker = |tx: Sender<Message<String>>| async move {
             for i in 0..2 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
                 send_data!(i.to_string(), tx);
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }

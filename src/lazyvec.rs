@@ -158,6 +158,7 @@ mod test {
         let string_maker = |tx: Sender<Message<String>>| async move {
             const COUNT: i32 = 5;
             for i in 0..COUNT {
+                tokio::time::sleep(Duration::from_millis(10)).await;
                 send_data!(i.to_string(), tx);
                 set_progress!(Progress::from_fraction(i, COUNT), tx);
                 tokio::time::sleep(Duration::from_millis(20)).await;
