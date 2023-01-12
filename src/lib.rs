@@ -7,7 +7,7 @@
 //! See these items for their respective documentation. A general usage guide would be:
 //! - You want several items of the same kind displayed / streamed? Use: [`LazyVecPromise`]
 //! - You want one item displayed when ready and need lazy evaluation or have intermediate results? Use: [`LazyVecPromise`]
-//! - You want one item displayed when ready and can afford spawning it directly? Use: [`ImmediateValuePromise`]
+//! - You just want one item displayed when ready? Use: [`ImmediateValuePromise`] (for laziness wrap in `Option`)
 #![deny(missing_docs)]
 #![deny(unused_qualifications)]
 #![deny(deprecated)]
@@ -35,6 +35,29 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 use tokio::sync::mpsc::Sender;
+
+/// Trait for directly accessing the cache underneath any promise
+pub trait DirectCacheAccess<T> {
+    /// returns mutable reference to the cache if applicable
+    fn get_value_mut(&mut self) -> Option<&mut T>;
+    /// returns a reference to the cache if applicable
+    fn get_value(&self) -> Option<&T>;
+    /// takes the value and leaves the promise in a valid state indicating its emptiness
+    fn take_inner(&mut self) -> Option<T>;
+}
+
+/// Blanket implementation for any `Option<DirectCacheAccess<T>>` allows for better handling of option-laziness
+impl<T: Send + 'static, A: DirectCacheAccess<T>> DirectCacheAccess<T> for Option<A> {
+    fn get_value_mut(&mut self) -> Option<&mut T> {
+        self.as_mut().and_then(|inner| inner.get_value_mut())
+    }
+    fn get_value(&self) -> Option<&T> {
+        self.as_ref().and_then(|inner| inner.get_value())
+    }
+    fn take_inner(&mut self) -> Option<T> {
+        self.as_mut().and_then(|inner| inner.take_inner())
+    }
+}
 
 /// a f64 type which is constrained to the range of 0.0 and 1.0
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -87,7 +110,7 @@ impl Progress {
 
     /// return progress as f64
     pub fn as_f64(&self) -> f64 {
-        self.0 as f64
+        self.0
     }
 }
 
@@ -100,7 +123,7 @@ impl Default for Progress {
 #[derive(Clone, PartialEq, Debug)]
 /// Represents a processing state.
 pub enum DataState {
-    /// You should never receive this, as poll automatically updates
+    /// You can only receive this after taking ownership of the data
     Uninitialized,
     /// Data is complete
     UpToDate,
@@ -229,5 +252,10 @@ mod test {
         assert_eq!(maximum.as_f64(), 1.0);
         let progress: Progress = 2.0.into();
         assert_eq!(progress.as_f64(), 1.0);
+    }
+
+    #[test]
+    fn default_progress_is_start() {
+        assert_eq!(Progress::default().as_f64(), 0.0);
     }
 }

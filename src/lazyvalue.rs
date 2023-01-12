@@ -1,4 +1,6 @@
-use crate::{box_future_factory, BoxedFutureFactory, DataState, Message, Promise};
+use crate::{
+    box_future_factory, BoxedFutureFactory, DataState, DirectCacheAccess, Message, Promise,
+};
 use std::fmt::Debug;
 use std::future::Future;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -11,7 +13,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, Promise, LazyValuePromise, api_macros::*};
+/// use lazy_async_promise::{DirectCacheAccess, DataState, Message, Promise, LazyValuePromise, api_macros::*};
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   send_data!(1337, tx);
@@ -27,8 +29,8 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///   loop {
 ///     match lazy_promise.poll_state() {
 ///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); }
-///       DataState::UpToDate   => { println!("Value up2date: {}", lazy_promise.value().unwrap()); }
-///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.value()); }  
+///       DataState::UpToDate   => { println!("Value up2date: {}", lazy_promise.get_value().unwrap()); }
+///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.get_value()); }
 ///     }
 ///   }
 /// }
@@ -63,14 +65,33 @@ impl<T: Debug> LazyValuePromise<T> {
         }
     }
 
-    /// get current value, may be incomplete depending on status
-    pub fn value(&self) -> Option<&T> {
-        self.cache.as_ref()
-    }
-
     #[cfg(test)]
     pub fn is_uninitialized(&self) -> bool {
         self.state == DataState::Uninitialized
+    }
+}
+
+impl<T: Debug> DirectCacheAccess<T> for LazyValuePromise<T> {
+    /// get current value (may be incomplete) as mutable ref, be careful with this as
+    /// further modification from the future may still push data.
+    fn get_value_mut(&mut self) -> Option<&mut T> {
+        self.cache.as_mut()
+    }
+
+    /// get current value, may be incomplete depending on status
+    fn get_value(&self) -> Option<&T> {
+        self.cache.as_ref()
+    }
+
+    /// takes the current value, if data was [`DataState::UpToDate`] it returns the value and sets the state to
+    /// [`DataState::Uninitialized`]. Otherwise, returns None.
+    fn take_inner(&mut self) -> Option<T> {
+        if self.state == DataState::UpToDate {
+            self.state = DataState::Uninitialized;
+            self.cache.take()
+        } else {
+            None
+        }
     }
 }
 
@@ -139,22 +160,23 @@ mod test {
                     delayed_value.poll_state().get_progress().unwrap().as_f64(),
                     0.0
                 );
-                assert!(delayed_value.value().is_none());
+                assert!(delayed_value.get_value().is_none());
                 //after wait, value is there
                 tokio::time::sleep(Duration::from_millis(150)).await;
                 assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
-                assert_eq!(delayed_value.value().unwrap(), "1");
+                assert_eq!(delayed_value.get_value().unwrap(), "1");
                 //update resets
                 delayed_value.update();
                 assert_eq!(
                     delayed_value.poll_state().get_progress().unwrap().as_f64(),
                     0.0
                 );
-                assert!(delayed_value.value().is_none());
+                assert!(delayed_value.get_value().is_none());
                 //after wait, value is there again and identical
                 tokio::time::sleep(Duration::from_millis(150)).await;
                 assert_eq!(*delayed_value.poll_state(), DataState::UpToDate);
-                assert_eq!(delayed_value.value().unwrap(), "1");
+                assert!(delayed_value.poll_state().get_progress().is_none());
+                assert_eq!(delayed_value.get_value().unwrap(), "1");
             });
     }
 
@@ -168,10 +190,32 @@ mod test {
         Runtime::new().unwrap().block_on(async {
             let mut delayed_vec = LazyValuePromise::new(error_maker, 1);
             assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
-            assert!(delayed_vec.value().is_none());
+            assert!(delayed_vec.get_value().is_none());
             tokio::time::sleep(Duration::from_millis(150)).await;
             assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
-            assert!(delayed_vec.value().is_none());
+            assert!(delayed_vec.get_value().is_none());
+        });
+    }
+
+    #[test]
+    fn test_direct_cache_access() {
+        let int_maker = |tx: Sender<Message<i32>>| async move {
+            send_data!(42, tx);
+            set_finished!(tx);
+        };
+
+        Runtime::new().unwrap().block_on(async {
+            let mut delayed_value = LazyValuePromise::new(int_maker, 6);
+            let _ = delayed_value.poll_state();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let poll_result = delayed_value.poll_state();
+            assert!(matches!(poll_result, DataState::UpToDate));
+            let val = delayed_value.get_value();
+            assert_eq!(*val.unwrap(), 42);
+            let _val_mut = delayed_value.get_value_mut();
+            let value_owned = delayed_value.take_inner().unwrap();
+            assert_eq!(value_owned, 42);
+            assert!(delayed_value.is_uninitialized());
         });
     }
 }
