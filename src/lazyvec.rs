@@ -45,7 +45,6 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///   // Also, we can use DirectCacheAccess:
 ///    let current_cache = lazy_promise.get_value();
 ///    let current_cache_mut = lazy_promise.get_value_mut();
-///    let current_cache_value = lazy_promise.take_inner();
 /// }
 /// ```
 ///
