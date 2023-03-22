@@ -111,7 +111,7 @@ impl Deref for BoxedSendError {
 /// promise_ref.poll_state();
 /// thread::sleep(Duration::from_millis(50));
 /// //now let's assume we forgot about our lease already and want to get the value again:
-/// let value_opt = state.promise.as_ref().unwrap().get_value(); // <- don't do this
+/// let value_opt = state.promise.as_ref().unwrap().get_value(); // <- dangerous
 /// let value_opt = state.promise.as_ref().and_then(|i| i.get_value()); // <- better, but still ugly
 /// let value_opt = state.promise.get_value(); // <- way nicer!
 /// assert!(value_opt.is_some());

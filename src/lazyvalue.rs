@@ -25,7 +25,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// // direct usage:
 /// let promise = LazyValuePromise::new(updater, 10);
 /// // for usage of the progress, see the docs of [`LazyVecPromise`]
-/// fn main_loop(lazy_promise: &mut  LazyValuePromise<i32>) {
+/// fn main_loop(mut  lazy_promise: LazyValuePromise<i32>) {
 ///   loop {
 ///     match lazy_promise.poll_state() {
 ///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); }
@@ -33,6 +33,10 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.get_value()); }
 ///     }
 ///   }
+///
+///   // Also, we can use all of DirectCacheAccess:
+///    let current_cache = lazy_promise.get_value();
+///    let current_cache_mut = lazy_promise.get_value_mut();
 /// }
 /// ```
 ///

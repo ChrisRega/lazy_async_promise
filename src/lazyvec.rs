@@ -13,7 +13,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, Promise, LazyVecPromise, api_macros::*};
+/// use lazy_async_promise::{DataState, Message, Promise, LazyVecPromise, api_macros::*, DirectCacheAccess};
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   const ITEM_COUNT: i32 = 100;
@@ -32,7 +32,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// // direct usage:
 /// let promise = LazyVecPromise::new(updater, 200);
 ///
-/// fn main_loop(lazy_promise: &mut LazyVecPromise<i32>) {
+/// fn main_loop(mut lazy_promise: LazyVecPromise<i32>) {
 ///   loop {
 ///     let state = lazy_promise.poll_state();
 ///     let progress = state.get_progress().unwrap_or_default();
@@ -42,6 +42,9 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///                           _ => { println!("Getting data, might be partially ready! (part: {:?} - progress: {}", lazy_promise.as_slice(), progress.as_f32()); }  
 ///     }
 ///   }
+///   // Also, we can use DirectCacheAccess:
+///    let current_cache = lazy_promise.get_value();
+///    let current_cache_mut = lazy_promise.get_value_mut();
 /// }
 /// ```
 ///
