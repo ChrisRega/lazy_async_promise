@@ -25,7 +25,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// // direct usage:
 /// let promise = LazyValuePromise::new(updater, 10);
 /// // for usage of the progress, see the docs of [`LazyVecPromise`]
-/// fn main_loop(lazy_promise: &mut  LazyValuePromise<i32>) {
+/// fn main_loop(mut  lazy_promise: LazyValuePromise<i32>) {
 ///   loop {
 ///     match lazy_promise.poll_state() {
 ///       DataState::Error(er)  => { println!("Error {} occurred! Retrying!", er); std::thread::sleep(Duration::from_millis(500)); lazy_promise.update(); }

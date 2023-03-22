@@ -32,7 +32,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// // direct usage:
 /// let promise = LazyVecPromise::new(updater, 200);
 ///
-/// fn main_loop(lazy_promise: &mut LazyVecPromise<i32>) {
+/// fn main_loop(mut lazy_promise: LazyVecPromise<i32>) {
 ///   loop {
 ///     let state = lazy_promise.poll_state();
 ///     let progress = state.get_progress().unwrap_or_default();
