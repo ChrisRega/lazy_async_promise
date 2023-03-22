@@ -33,6 +33,11 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 ///                           _ => { println!("Still updating... might be in strange state! (current state: {:?}", lazy_promise.get_value()); }
 ///     }
 ///   }
+///
+///   // Also, we can use all of DirectCacheAccess:
+///    let current_cache = lazy_promise.get_value();
+///    let current_cache_mut = lazy_promise.get_value_mut();
+///    let current_cache_value = lazy_promise.take_inner();
 /// }
 /// ```
 ///

@@ -2,7 +2,7 @@
 [![Documentation](https://docs.rs/lazy_async_promise/badge.svg)](https://docs.rs/lazy_async_promise)
 ![CI](https://github.com/ChrisRega/lazy_async_promise/actions/workflows/rust.yml/badge.svg?branch=main "CI")
 [![Coverage Status](https://coveralls.io/repos/github/ChrisRega/lazy_async_promise/badge.svg?branch=main)](https://coveralls.io/github/ChrisRega/lazy_async_promise?branch=main)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 
 
 This crate currently only features simple primitives for getting computation time off the main thread using tokio:
@@ -12,12 +12,19 @@ This crate currently only features simple primitives for getting computation tim
 As the name suggests the two of them are lazily evaluated and nothing happens until they are polled for the first time.
 
 For single values which are either available or not there's `ImmediateValuePromise` which triggers computation immediately.
-There's not in-calculation value read out, so either it's finished or not. 
+There's not in-calculation value read out, so either it's finished or not.
+After heavy usage, I currently tend to use `ImmediateValuePromise` wrapped in `Option` for most lazy values, too.
+Especially when no intermediate values are needed, it's technically sufficient and simpler. 
+Also, since 0.4.0 it's very convenient to use now, see the docs for examples.
 
-Example-usage of this crate with a small egui/eframe blog-reader can be found [here](https://github.com/ChrisRega/example-blog-client/)
-
+Another example usage of this crate with a small egui/eframe blog-reader can be found [here](https://github.com/ChrisRega/example-blog-client/)
 
 Changelog:
+
+0.4.0:
+- Added more flexible API to lazy and immediate structures, allowing to take the values
+- Added DirectCacheAccess trait to make option-based usage of the immediate value promise more convenient
+- Updated documentation
 
 0.3.1:
 - Add better api macros for lazy structures

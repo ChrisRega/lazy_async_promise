@@ -6,7 +6,7 @@
 //! - [`ImmediateValuePromise`]: An immediately updating async-enabled single value promise
 //! See these items for their respective documentation. A general usage guide would be:
 //! - You want several items of the same kind displayed / streamed? Use: [`LazyVecPromise`]
-//! - You want one item displayed when ready and need lazy evaluation or have intermediate results? Use: [`LazyVecPromise`]
+//! - You want one item displayed when ready and need lazy evaluation or have intermediate results? Use: [`LazyValuePromise`]
 //! - You just want one item displayed when ready? Use: [`ImmediateValuePromise`] (for laziness wrap in `Option`)
 #![deny(missing_docs)]
 #![deny(unused_qualifications)]
