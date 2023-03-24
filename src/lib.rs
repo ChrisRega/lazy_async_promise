@@ -38,7 +38,7 @@ mod lazyvalue;
 mod lazyvec;
 
 /// Strong type to keep the boxed error. You can just deref it to get the inside box.
-pub struct BoxedSendError(Box<dyn Error + Send>);
+pub struct BoxedSendError(pub Box<dyn Error + Send>);
 
 
 /// Type alias for futures with BoxedSendError
