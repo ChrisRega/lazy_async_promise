@@ -17,24 +17,47 @@
 
 extern crate core;
 
-mod immediatevalue;
-mod lazyvalue;
-mod lazyvec;
+use std::error::Error;
+use std::fmt::Debug;
+use std::future::Future;
+use std::ops::Deref;
+use std::pin::Pin;
 
-#[doc(inline)]
-pub use lazyvec::LazyVecPromise;
+use tokio::sync::mpsc::Sender;
 
 #[doc(inline)]
 pub use immediatevalue::ImmediateValuePromise;
 pub use immediatevalue::ImmediateValueState;
-
 #[doc(inline)]
 pub use lazyvalue::LazyValuePromise;
+#[doc(inline)]
+pub use lazyvec::LazyVecPromise;
 
-use std::fmt::Debug;
-use std::future::Future;
-use std::pin::Pin;
-use tokio::sync::mpsc::Sender;
+mod immediatevalue;
+mod lazyvalue;
+mod lazyvec;
+
+/// Strong type to keep the boxed error. You can just deref it to get the inside box.
+pub struct BoxedSendError(Box<dyn Error + Send>);
+
+
+/// Type alias for futures with BoxedSendError
+pub type FutureResult<T> = Result<T, BoxedSendError>;
+
+impl<E: Error + Send + 'static> From<E> for BoxedSendError {
+    fn from(e: E) -> Self {
+        BoxedSendError(Box::new(e))
+    }
+}
+
+impl Deref for BoxedSendError {
+    type Target = Box<dyn Error + Send>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 
 /// Trait for directly accessing the cache underneath any promise
 pub trait DirectCacheAccess<T> {
@@ -71,12 +94,12 @@ impl<T: Into<f64>> From<T> for Progress {
 
 /// Use this to get all macros
 pub mod api_macros {
+    pub use crate::Progress;
     pub use crate::send_data;
     pub use crate::set_error;
     pub use crate::set_finished;
     pub use crate::set_progress;
     pub use crate::unpack_result;
-    pub use crate::Progress;
 }
 
 impl Progress {
@@ -220,12 +243,12 @@ macro_rules! set_finished {
 }
 
 type BoxedFutureFactory<T> =
-    Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>>;
+Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output=()> + Send + 'static>>>;
 
 fn box_future_factory<
     T: Debug,
     U: Fn(Sender<Message<T>>) -> Fut + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
+    Fut: Future<Output=()> + Send + 'static,
 >(
     future_factory: U,
 ) -> BoxedFutureFactory<T> {

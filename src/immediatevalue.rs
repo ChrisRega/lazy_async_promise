@@ -1,28 +1,10 @@
-use crate::DirectCacheAccess;
-use std::error::Error;
 use std::future::Future;
 use std::mem;
-use std::ops::Deref;
 use std::sync::Arc;
+
 use tokio::sync::Mutex;
 
-/// Strong type to keep the boxed error. You can just deref it to get the inside box.
-pub struct BoxedSendError(Box<dyn Error + Send>);
-type FutureResult<T> = Result<T, BoxedSendError>;
-
-impl<E: Error + Send + 'static> From<E> for BoxedSendError {
-    fn from(e: E) -> Self {
-        BoxedSendError(Box::new(e))
-    }
-}
-
-impl Deref for BoxedSendError {
-    type Target = Box<dyn Error + Send>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+use crate::{BoxedSendError, DirectCacheAccess, FutureResult};
 
 /// # A promise which can be easily created and stored.
 /// ## Introduction
@@ -180,7 +162,7 @@ impl<T: Send + 'static> DirectCacheAccess<T> for ImmediateValuePromise<T> {
 
 impl<T: Send> ImmediateValuePromise<T> {
     /// Creator, supply a future which returns `Result<T, Box<dyn Error + Send>`. Will be immediately spawned via tokio.
-    pub fn new<U: Future<Output = Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
+    pub fn new<U: Future<Output=Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
         let arc = Arc::new(Mutex::new(None));
         let arc_clone = arc.clone();
         tokio::spawn(async move {
@@ -223,11 +205,13 @@ impl<T: Send> ImmediateValuePromise<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
-    use crate::DirectCacheAccess;
     use std::fs::File;
     use std::time::Duration;
+
     use tokio::runtime::Runtime;
+
+    use crate::DirectCacheAccess;
+    use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
 
     #[test]
     fn default() {
