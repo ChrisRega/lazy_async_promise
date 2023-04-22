@@ -34,12 +34,12 @@ pub use lazyvalue::LazyValuePromise;
 pub use lazyvec::LazyVecPromise;
 
 mod immediatevalue;
+mod immediatevalueprogress;
 mod lazyvalue;
 mod lazyvec;
 
 /// Strong type to keep the boxed error. You can just deref it to get the inside box.
 pub struct BoxedSendError(pub Box<dyn Error + Send>);
-
 
 /// Type alias for futures with BoxedSendError
 pub type FutureResult<T> = Result<T, BoxedSendError>;
@@ -57,7 +57,6 @@ impl Deref for BoxedSendError {
         &self.0
     }
 }
-
 
 /// Trait for directly accessing the cache underneath any promise
 pub trait DirectCacheAccess<T> {
@@ -94,12 +93,12 @@ impl<T: Into<f64>> From<T> for Progress {
 
 /// Use this to get all macros
 pub mod api_macros {
-    pub use crate::Progress;
     pub use crate::send_data;
     pub use crate::set_error;
     pub use crate::set_finished;
     pub use crate::set_progress;
     pub use crate::unpack_result;
+    pub use crate::Progress;
 }
 
 impl Progress {
@@ -243,12 +242,12 @@ macro_rules! set_finished {
 }
 
 type BoxedFutureFactory<T> =
-Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output=()> + Send + 'static>>>;
+    Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>>;
 
 fn box_future_factory<
     T: Debug,
     U: Fn(Sender<Message<T>>) -> Fut + 'static,
-    Fut: Future<Output=()> + Send + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
 >(
     future_factory: U,
 ) -> BoxedFutureFactory<T> {

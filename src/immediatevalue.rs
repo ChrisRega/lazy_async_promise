@@ -100,7 +100,7 @@ use crate::{BoxedSendError, DirectCacheAccess, FutureResult};
 /// assert_eq!(*value_opt.unwrap(), 34);
 /// ```
 ///
-pub struct ImmediateValuePromise<T: Send + 'static> {
+pub struct ImmediateValuePromise<T: Send> {
     value_arc: Arc<Mutex<Option<FutureResult<T>>>>,
     state: ImmediateValueState<T>,
 }
@@ -160,9 +160,9 @@ impl<T: Send + 'static> DirectCacheAccess<T> for ImmediateValuePromise<T> {
     }
 }
 
-impl<T: Send> ImmediateValuePromise<T> {
+impl<T: Send + 'static> ImmediateValuePromise<T> {
     /// Creator, supply a future which returns `Result<T, Box<dyn Error + Send>`. Will be immediately spawned via tokio.
-    pub fn new<U: Future<Output=Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
+    pub fn new<U: Future<Output = Result<T, BoxedSendError>> + Send + 'static>(updater: U) -> Self {
         let arc = Arc::new(Mutex::new(None));
         let arc_clone = arc.clone();
         tokio::spawn(async move {
@@ -210,8 +210,8 @@ mod test {
 
     use tokio::runtime::Runtime;
 
-    use crate::DirectCacheAccess;
     use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
+    use crate::DirectCacheAccess;
 
     #[test]
     fn default() {
