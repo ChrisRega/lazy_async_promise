@@ -29,6 +29,11 @@ use tokio::sync::mpsc::Sender;
 pub use immediatevalue::ImmediateValuePromise;
 pub use immediatevalue::ImmediateValueState;
 #[doc(inline)]
+pub use immediatevalueprogress::ProgressTrackedImValProm;
+pub use immediatevalueprogress::Status;
+pub use immediatevalueprogress::StringStatus;
+
+#[doc(inline)]
 pub use lazyvalue::LazyValuePromise;
 #[doc(inline)]
 pub use lazyvec::LazyVecPromise;
@@ -139,6 +144,13 @@ impl Progress {
 impl Default for Progress {
     fn default() -> Self {
         Progress(0.0)
+    }
+}
+
+impl Deref for Progress {
+    type Target = f64;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
