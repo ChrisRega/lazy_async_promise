@@ -74,7 +74,7 @@ impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
         self.promise.poll_state()
     }
 
-    pub fn progress(&self) -> Progress {
+    pub fn get_progress(&self) -> Progress {
         self.status
             .last()
             .map(|p| p.progress)
@@ -127,10 +127,10 @@ mod test {
                 oneshot_progress.poll_state(),
                 ImmediateValueState::Updating
             ));
-            assert_eq!(*oneshot_progress.progress(), 0.0);
+            assert_eq!(*oneshot_progress.get_progress(), 0.0);
             tokio::time::sleep(Duration::from_millis(100)).await;
             let _ = oneshot_progress.poll_state();
-            assert_eq!(*oneshot_progress.progress(), 1.0);
+            assert_eq!(*oneshot_progress.get_progress(), 1.0);
             let result = oneshot_progress.poll_state();
 
             if let ImmediateValueState::Success(val) = result {
