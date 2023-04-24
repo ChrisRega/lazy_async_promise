@@ -5,14 +5,19 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::time::Instant;
 
+/// A status update struct containing the issue-date, progress and a message
 #[derive(Debug)]
 pub struct Status<M> {
+    /// Time when this status was created
     pub time: Instant,
+    /// Current progress
     pub progress: Progress,
+    /// Message
     pub message: M,
 }
 
 impl<M> Status<M> {
+    /// Create a new status message with now as timestamp
     pub fn new(progress: Progress, message: M) -> Self {
         Self {
             progress,
@@ -22,9 +27,11 @@ impl<M> Status<M> {
     }
 }
 
+/// This pub type allows to use static str and string in a message
 pub type StringStatus = Status<Cow<'static, str>>;
 
 impl StringStatus {
+    /// create a string status from a static str
     pub fn from_str(progress: Progress, static_message: &'static str) -> Self {
         StringStatus {
             message: Cow::Borrowed(static_message),
@@ -32,6 +39,7 @@ impl StringStatus {
             progress,
         }
     }
+    /// create a string status from a real String
     pub fn from_string(progress: Progress, message: String) -> Self {
         StringStatus {
             message: Cow::Owned(message),
@@ -51,6 +59,7 @@ pub struct ProgressTrackedImValProm<T: Send, M> {
 }
 
 impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
+    /// create a new Progress tracked immediate value promise.
     pub fn new(
         creator: impl FnOnce(Sender<Status<M>>) -> ImmediateValuePromise<T>,
         buffer: usize,
@@ -63,10 +72,22 @@ impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
         }
     }
 
+    /// Slice of all recorded status changes
+    pub fn status_history(&self) -> &[Status<M>] {
+        &self.status
+    }
+
+    /// Get the last status if there is any
+    pub fn last_status(&self) -> Option<&Status<M>> {
+        self.status.last()
+    }
+
+    /// Is the future finished
     pub fn finished(&self) -> bool {
         self.promise.get_value().is_some()
     }
 
+    /// Poll the state and process the messages
     pub fn poll_state(&mut self) -> &ImmediateValueState<T> {
         while let Ok(msg) = self.receiver.try_recv() {
             self.status.push(msg);
@@ -74,6 +95,7 @@ impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
         self.promise.poll_state()
     }
 
+    /// Get the current progress
     pub fn get_progress(&self) -> Progress {
         self.status
             .last()
