@@ -6,6 +6,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::time::Instant;
 
 /// A status update struct containing the issue-date, progress and a message
+/// You can use any struct that can be transferred via tokio mpsc channels.
 #[derive(Debug)]
 pub struct Status<M> {
     /// Time when this status was created
@@ -17,7 +18,7 @@ pub struct Status<M> {
 }
 
 impl<M> Status<M> {
-    /// Create a new status message with now as timestamp
+    /// Create a new status message with `now` as timestamp
     pub fn new(progress: Progress, message: M) -> Self {
         Self {
             progress,
@@ -27,7 +28,7 @@ impl<M> Status<M> {
     }
 }
 
-/// This pub type allows to use static str and string in a message
+/// This [`Status`] typedef allows to use both: `&'static str` and `String` in a message
 pub type StringStatus = Status<Cow<'static, str>>;
 
 impl StringStatus {
@@ -39,7 +40,7 @@ impl StringStatus {
             progress,
         }
     }
-    /// create a string status from a real String
+    /// create a string status from a `String`
     pub fn from_string(progress: Progress, message: String) -> Self {
         StringStatus {
             message: Cow::Owned(message),
@@ -51,6 +52,33 @@ impl StringStatus {
 
 /// # A progress and status enabling wrapper for [`ImmediateValuePromise`]
 /// This struct allows to use the [`Progress`] type and any kind of status message
+/// You can use this to set a computation progress and optionally attach any kind of status message.
+/// Assume your action runs  for an extended period of time and you want to inform the user about the state:
+///```rust, no_run
+///use std::borrow::Cow;
+///use std::time::Duration;
+///use lazy_async_promise::{ImmediateValueState, ImmediateValuePromise, Progress, ProgressTrackedImValProm, StringStatus};
+///let mut oneshot_progress = ProgressTrackedImValProm::new( |s| { ImmediateValuePromise::new(
+///  async move {
+///  //send some initial status
+///    s.send(StringStatus::new(
+///      Progress::from_percent(0.0),
+///      "Initializing".into(),
+///    )).await.unwrap();
+///    // do some long running operation
+///    for i in 0..100 {
+///      tokio::time::sleep(Duration::from_millis(50)).await;
+///      s.send(StringStatus::new(
+///        Progress::from_percent(i as f64),
+///        Cow::Borrowed("In progress"))).await.unwrap();
+///    }
+///    Ok(34)
+///  })}, 2000);
+///  assert!(matches!(
+///    oneshot_progress.poll_state(),
+///    ImmediateValueState::Updating));
+///   //waiting and polling will yield "In progress" now :)
+/// ```
 ///
 pub struct ProgressTrackedImValProm<T: Send, M> {
     promise: ImmediateValuePromise<T>,
