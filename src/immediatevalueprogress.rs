@@ -1,9 +1,9 @@
 use crate::{DirectCacheAccess, Progress};
 use crate::{ImmediateValuePromise, ImmediateValueState};
 use std::borrow::Cow;
+use std::time::Instant;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
-use tokio::time::Instant;
 
 /// A status update struct containing the issue-date, progress and a message
 /// You can use any struct that can be transferred via tokio mpsc channels.
@@ -32,7 +32,7 @@ impl<M> Status<M> {
 pub type StringStatus = Status<Cow<'static, str>>;
 
 impl StringStatus {
-    /// create a string status from a static str
+    /// create a [`StringStatus`] from a `&'static str`
     pub fn from_str(progress: Progress, static_message: &'static str) -> Self {
         StringStatus {
             message: Cow::Borrowed(static_message),
@@ -40,7 +40,7 @@ impl StringStatus {
             progress,
         }
     }
-    /// create a string status from a `String`
+    /// create a [`StringStatus`] from a `String`
     pub fn from_string(progress: Progress, message: String) -> Self {
         StringStatus {
             message: Cow::Owned(message),
@@ -100,17 +100,17 @@ impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
         }
     }
 
-    /// Slice of all recorded status changes
+    /// Slice of all recorded [`Status`] changes
     pub fn status_history(&self) -> &[Status<M>] {
         &self.status
     }
 
-    /// Get the last status if there is any
+    /// Get the last [`Status`] if there is any
     pub fn last_status(&self) -> Option<&Status<M>> {
         self.status.last()
     }
 
-    /// Is the future finished
+    /// Is our future already finished?
     pub fn finished(&self) -> bool {
         self.promise.get_value().is_some()
     }

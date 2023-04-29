@@ -1,13 +1,15 @@
 #![crate_name = "lazy_async_promise"]
 //! # Primitives for combining tokio and immediate mode guis
-//! Currently, only three primitives are implemented:
+//! The following primitives are implemented:
+//! - [`ImmediateValuePromise`]: An immediately updating async-enabled single value promise
+//! - [`ProgressTrackedImValProm`]: A progress/status emitting enhanced wrapper for [`ImmediateValuePromise`]
 //! - [`LazyVecPromise`]: A lazily evaluated, partially readable and async-enabled vector-backed promise
 //! - [`LazyValuePromise`]: A lazily evaluated and async-enabled single value promise
-//! - [`ImmediateValuePromise`]: An immediately updating async-enabled single value promise
 //! See these items for their respective documentation. A general usage guide would be:
-//! - You want several items of the same kind displayed / streamed? Use: [`LazyVecPromise`]
-//! - You want one item displayed when ready and need lazy evaluation or have intermediate results? Use: [`LazyValuePromise`]
-//! - You just want one item displayed when ready? Use: [`ImmediateValuePromise`] (for laziness wrap in `Option`)
+//! - You just want one value when ready? Use: [`ImmediateValuePromise`] (for laziness wrap in `Option`)
+//! - If you need status update support for that, use [`ProgressTrackedImValProm`]
+//! - You want several items of the same kind / streamed? Use: [`LazyVecPromise`]
+//! - You want one item when ready and need lazy evaluation or have intermediate results? Use: [`LazyValuePromise`]
 #![deny(missing_docs)]
 #![deny(unused_qualifications)]
 #![deny(deprecated)]
