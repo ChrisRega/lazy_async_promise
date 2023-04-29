@@ -153,16 +153,24 @@ mod test {
         let mut oneshot_progress = ProgressTrackedImValProm::new(
             |s| {
                 ImmediateValuePromise::new(async move {
-                    s.send(StringStatus::new(
+                    s.send(StringStatus::from_str(
                         Progress::from_percent(0.0),
-                        Cow::Borrowed("Initializing"),
+                        "Initializing",
                     ))
                     .await
                     .unwrap();
-                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    tokio::time::sleep(Duration::from_millis(25)).await;
                     s.send(StringStatus::new(
+                        Progress::from_percent(50.0),
+                        "processing".into(),
+                    ))
+                    .await
+                    .unwrap();
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+
+                    s.send(StringStatus::from_string(
                         Progress::from_percent(100.0),
-                        Cow::Borrowed("Done"),
+                        format!("Done"),
                     ))
                     .await
                     .unwrap();
@@ -175,6 +183,8 @@ mod test {
             oneshot_progress.poll_state(),
             ImmediateValueState::Updating
         ));
+        assert!(!oneshot_progress.finished());
+
         assert_eq!(*oneshot_progress.get_progress(), 0.0);
         tokio::time::sleep(Duration::from_millis(100)).await;
         let _ = oneshot_progress.poll_state();
@@ -183,9 +193,22 @@ mod test {
 
         if let ImmediateValueState::Success(val) = result {
             assert_eq!(*val, 34);
-            return;
+        } else {
+            unreachable!();
         }
+        // check finished
+        assert!(oneshot_progress.finished());
+        let history = oneshot_progress.status_history();
+        assert_eq!(history.len(), 3);
 
-        unreachable!();
+        // check direct cache access trait
+        let val = oneshot_progress.get_value().unwrap();
+        assert_eq!(*val, 34);
+        let val = oneshot_progress.get_value_mut().unwrap();
+        *val = 33;
+        assert_eq!(*oneshot_progress.get_value().unwrap(), 33);
+        let val = oneshot_progress.take_value().unwrap();
+        assert_eq!(val, 33);
+        assert!(oneshot_progress.get_value().is_none());
     }
 }
