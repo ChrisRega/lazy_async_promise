@@ -208,119 +208,107 @@ mod test {
     use std::fs::File;
     use std::time::Duration;
 
-    use tokio::runtime::Runtime;
-
     use crate::immediatevalue::{ImmediateValuePromise, ImmediateValueState};
     use crate::DirectCacheAccess;
 
-    #[test]
-    fn default() {
-        Runtime::new().unwrap().block_on(async {
-            let mut oneshot_val = ImmediateValuePromise::new(async {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                Ok(34)
-            });
-            assert!(matches!(
-                oneshot_val.poll_state(),
-                ImmediateValueState::Updating
-            ));
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            let result = oneshot_val.poll_state();
-            if let ImmediateValueState::Success(val) = result {
-                assert_eq!(*val, 34);
-                return;
-            }
-            unreachable!();
-        });
-    }
-
-    #[test]
-    fn error() {
-        Runtime::new().unwrap().block_on(async {
-            let mut oneshot_val = ImmediateValuePromise::new(async {
-                let some_result = File::open("DOES_NOT_EXIST");
-                some_result?;
-                Ok("bla".to_string())
-            });
-            assert!(matches!(
-                oneshot_val.poll_state(),
-                ImmediateValueState::Updating
-            ));
+    #[tokio::test]
+    async fn default() {
+        let mut oneshot_val = ImmediateValuePromise::new(async {
             tokio::time::sleep(Duration::from_millis(50)).await;
-            let result = oneshot_val.poll_state();
-            if let ImmediateValueState::Error(e) = result {
-                let _ = format!("{}", **e);
-                return;
-            }
-            unreachable!();
+            Ok(34)
         });
+        assert!(matches!(
+            oneshot_val.poll_state(),
+            ImmediateValueState::Updating
+        ));
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let result = oneshot_val.poll_state();
+        if let ImmediateValueState::Success(val) = result {
+            assert_eq!(*val, 34);
+            return;
+        }
+        unreachable!();
     }
 
-    #[test]
-    fn get_state() {
-        Runtime::new().unwrap().block_on(async {
-            let mut oneshot_val = ImmediateValuePromise::new(async { Ok("bla".to_string()) });
+    #[tokio::test]
+    async fn error() {
+        let mut oneshot_val = ImmediateValuePromise::new(async {
+            let some_result = File::open("DOES_NOT_EXIST");
+            some_result?;
+            Ok("bla".to_string())
+        });
+        assert!(matches!(
+            oneshot_val.poll_state(),
+            ImmediateValueState::Updating
+        ));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let result = oneshot_val.poll_state();
+        if let ImmediateValueState::Error(e) = result {
+            let _ = format!("{}", **e);
+            return;
+        }
+        unreachable!();
+    }
+
+    #[tokio::test]
+    async fn get_state() {
+        let mut oneshot_val = ImmediateValuePromise::new(async { Ok("bla".to_string()) });
+        // get value does not trigger any polling
+        let state = oneshot_val.get_state();
+        assert!(matches!(state, ImmediateValueState::Updating));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let state = oneshot_val.get_state();
+        assert!(matches!(state, ImmediateValueState::Updating));
+
+        let polled = oneshot_val.poll_state();
+        assert_eq!(polled.get_value().unwrap(), "bla");
+    }
+
+    #[tokio::test]
+    async fn get_mut_take_value() {
+        let mut oneshot_val = ImmediateValuePromise::new(async { Ok("bla".to_string()) });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        {
             // get value does not trigger any polling
-            let state = oneshot_val.get_state();
-            assert!(matches!(state, ImmediateValueState::Updating));
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            let state = oneshot_val.get_state();
-            assert!(matches!(state, ImmediateValueState::Updating));
-
-            let polled = oneshot_val.poll_state();
-            assert_eq!(polled.get_value().unwrap(), "bla");
-        });
-    }
-
-    #[test]
-    fn get_mut_take_value() {
-        Runtime::new().unwrap().block_on(async {
-            let mut oneshot_val = ImmediateValuePromise::new(async { Ok("bla".to_string()) });
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            {
-                // get value does not trigger any polling
-                let result = oneshot_val.poll_state_mut();
-                // we got the value
-                if let Some(inner) = result.get_value_mut() {
-                    assert_eq!(inner, "bla");
-                    // write back
-                    *inner = "changed".to_string();
-                } else {
-                    unreachable!();
-                }
-                let result = oneshot_val.poll_state_mut();
-                // take it out, should be changed and owned
-                let value = result.take_value();
-                assert_eq!(value.unwrap().as_str(), "changed");
-                assert!(matches!(result, ImmediateValueState::Empty));
+            let result = oneshot_val.poll_state_mut();
+            // we got the value
+            if let Some(inner) = result.get_value_mut() {
+                assert_eq!(inner, "bla");
+                // write back
+                *inner = "changed".to_string();
+            } else {
+                unreachable!();
             }
-            // afterwards we are empty on get and poll
-            assert!(matches!(
-                oneshot_val.get_state(),
-                ImmediateValueState::Empty
-            ));
-            assert!(matches!(
-                oneshot_val.poll_state(),
-                ImmediateValueState::Empty
-            ));
-        });
+            let result = oneshot_val.poll_state_mut();
+            // take it out, should be changed and owned
+            let value = result.take_value();
+            assert_eq!(value.unwrap().as_str(), "changed");
+            assert!(matches!(result, ImmediateValueState::Empty));
+        }
+        // afterwards we are empty on get and poll
+        assert!(matches!(
+            oneshot_val.get_state(),
+            ImmediateValueState::Empty
+        ));
+        assert!(matches!(
+            oneshot_val.poll_state(),
+            ImmediateValueState::Empty
+        ));
     }
 
-    #[test]
-    fn option_laziness() {
+    #[tokio::test]
+    async fn option_laziness() {
         use crate::*;
-        Runtime::new().unwrap().block_on(async {
-            let mut option = Some(ImmediateValuePromise::new(async { Ok("bla".to_string()) }));
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            option.as_mut().unwrap().poll_state();
-            let _inner = option.get_value();
-            let _inner_mut = option.get_value_mut();
-            let inner_owned = option.take_value().unwrap();
-            assert_eq!(inner_owned, "bla");
-            // after value is taken, we can't borrow it again
-            assert!(option.get_value().is_none());
-            assert!(option.get_value_mut().is_none());
-            assert!(option.take_value().is_none());
-        });
+        let mut option = Some(ImmediateValuePromise::new(async { Ok("bla".to_string()) }));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        option.as_mut().unwrap().poll_state();
+        let _inner = option.get_value();
+        let _inner_mut = option.get_value_mut();
+        let inner_owned = option.take_value().unwrap();
+        assert_eq!(inner_owned, "bla");
+        // after value is taken, we can't borrow it again
+        assert!(option.get_value().is_none());
+        assert!(option.get_value_mut().is_none());
+        assert!(option.take_value().is_none());
     }
 }

@@ -15,5 +15,5 @@ description = "Primitives for lazily getting data from futures with tokio for im
 tokio = {version="1", features=["rt-multi-thread", "sync"]}
 
 [dev-dependencies]
-tokio = {version="1", features=["rt-multi-thread", "sync", "time", "fs"]}
+tokio = {version="1", features=["rt-multi-thread", "sync", "time", "fs", "macros"]}
 

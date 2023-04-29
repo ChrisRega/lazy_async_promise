@@ -148,47 +148,44 @@ mod test {
     use super::*;
     use crate::ImmediateValuePromise;
     use std::time::Duration;
-    use tokio::runtime::Runtime;
-    #[test]
-    fn basic_usage_cycle() {
-        Runtime::new().unwrap().block_on(async {
-            let mut oneshot_progress = ProgressTrackedImValProm::new(
-                |s| {
-                    ImmediateValuePromise::new(async move {
-                        s.send(StringStatus::new(
-                            Progress::from_percent(0.0),
-                            Cow::Borrowed("Initializing"),
-                        ))
-                        .await
-                        .unwrap();
-                        tokio::time::sleep(Duration::from_millis(50)).await;
-                        s.send(StringStatus::new(
-                            Progress::from_percent(100.0),
-                            Cow::Borrowed("Done"),
-                        ))
-                        .await
-                        .unwrap();
-                        Ok(34)
-                    })
-                },
-                2000,
-            );
-            assert!(matches!(
-                oneshot_progress.poll_state(),
-                ImmediateValueState::Updating
-            ));
-            assert_eq!(*oneshot_progress.get_progress(), 0.0);
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            let _ = oneshot_progress.poll_state();
-            assert_eq!(*oneshot_progress.get_progress(), 1.0);
-            let result = oneshot_progress.poll_state();
+    #[tokio::test]
+    async fn basic_usage_cycle() {
+        let mut oneshot_progress = ProgressTrackedImValProm::new(
+            |s| {
+                ImmediateValuePromise::new(async move {
+                    s.send(StringStatus::new(
+                        Progress::from_percent(0.0),
+                        Cow::Borrowed("Initializing"),
+                    ))
+                    .await
+                    .unwrap();
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    s.send(StringStatus::new(
+                        Progress::from_percent(100.0),
+                        Cow::Borrowed("Done"),
+                    ))
+                    .await
+                    .unwrap();
+                    Ok(34)
+                })
+            },
+            2000,
+        );
+        assert!(matches!(
+            oneshot_progress.poll_state(),
+            ImmediateValueState::Updating
+        ));
+        assert_eq!(*oneshot_progress.get_progress(), 0.0);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let _ = oneshot_progress.poll_state();
+        assert_eq!(*oneshot_progress.get_progress(), 1.0);
+        let result = oneshot_progress.poll_state();
 
-            if let ImmediateValueState::Success(val) = result {
-                assert_eq!(*val, 34);
-                return;
-            }
+        if let ImmediateValueState::Success(val) = result {
+            assert_eq!(*val, 34);
+            return;
+        }
 
-            unreachable!();
-        });
+        unreachable!();
     }
 }
