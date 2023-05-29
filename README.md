@@ -21,6 +21,11 @@ Another example usage of this crate with a small egui/eframe blog-reader can be 
 
 Changelog:
 
+0.5.0
+- Fixed visibility issues with BoxSendError (thanks @aspcartman)
+- Added progress tracked wrapper for immediate value promise (made lazyvaluepromise obsolete at least for me)
+- Updated documentation
+
 0.4.0:
 - Added more flexible API to lazy and immediate structures, allowing to take the values
 - Added DirectCacheAccess trait to make option-based usage of the immediate value promise more convenient

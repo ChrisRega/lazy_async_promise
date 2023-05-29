@@ -1,13 +1,19 @@
 #![crate_name = "lazy_async_promise"]
 //! # Primitives for combining tokio and immediate mode guis
-//! Currently, only three primitives are implemented:
+//! ## List of primitives
+//! The following primitives are implemented:
+//! - [`ImmediateValuePromise`]: An immediately updating async-enabled single value promise
+//! - [`ProgressTrackedImValProm`]: A progress/status emitting enhanced wrapper for [`ImmediateValuePromise`]
 //! - [`LazyVecPromise`]: A lazily evaluated, partially readable and async-enabled vector-backed promise
 //! - [`LazyValuePromise`]: A lazily evaluated and async-enabled single value promise
-//! - [`ImmediateValuePromise`]: An immediately updating async-enabled single value promise
-//! See these items for their respective documentation. A general usage guide would be:
-//! - You want several items of the same kind displayed / streamed? Use: [`LazyVecPromise`]
-//! - You want one item displayed when ready and need lazy evaluation or have intermediate results? Use: [`LazyValuePromise`]
-//! - You just want one item displayed when ready? Use: [`ImmediateValuePromise`] (for laziness wrap in `Option`)
+//!
+//! See these items for their respective documentation.
+//! ## What to use
+//! A general usage guide would be:
+//! - You just want one value when ready? Use: [`ImmediateValuePromise`] (for laziness wrap in `Option`)
+//! - If you need status update support for that, use [`ProgressTrackedImValProm`]
+//! - You want several items of the same kind / streamed? Use: [`LazyVecPromise`]
+//! - You want one item when ready and need lazy evaluation or have intermediate results? Use: [`LazyValuePromise`]
 #![deny(missing_docs)]
 #![deny(unused_qualifications)]
 #![deny(deprecated)]
@@ -29,17 +35,22 @@ use tokio::sync::mpsc::Sender;
 pub use immediatevalue::ImmediateValuePromise;
 pub use immediatevalue::ImmediateValueState;
 #[doc(inline)]
+pub use immediatevalueprogress::ProgressTrackedImValProm;
+pub use immediatevalueprogress::Status;
+pub use immediatevalueprogress::StringStatus;
+
+#[doc(inline)]
 pub use lazyvalue::LazyValuePromise;
 #[doc(inline)]
 pub use lazyvec::LazyVecPromise;
 
 mod immediatevalue;
+mod immediatevalueprogress;
 mod lazyvalue;
 mod lazyvec;
 
 /// Strong type to keep the boxed error. You can just deref it to get the inside box.
 pub struct BoxedSendError(pub Box<dyn Error + Send>);
-
 
 /// Type alias for futures with BoxedSendError
 pub type FutureResult<T> = Result<T, BoxedSendError>;
@@ -57,7 +68,6 @@ impl Deref for BoxedSendError {
         &self.0
     }
 }
-
 
 /// Trait for directly accessing the cache underneath any promise
 pub trait DirectCacheAccess<T> {
@@ -94,12 +104,12 @@ impl<T: Into<f64>> From<T> for Progress {
 
 /// Use this to get all macros
 pub mod api_macros {
-    pub use crate::Progress;
     pub use crate::send_data;
     pub use crate::set_error;
     pub use crate::set_finished;
     pub use crate::set_progress;
     pub use crate::unpack_result;
+    pub use crate::Progress;
 }
 
 impl Progress {
@@ -140,6 +150,13 @@ impl Progress {
 impl Default for Progress {
     fn default() -> Self {
         Progress(0.0)
+    }
+}
+
+impl Deref for Progress {
+    type Target = f64;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -243,12 +260,12 @@ macro_rules! set_finished {
 }
 
 type BoxedFutureFactory<T> =
-Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output=()> + Send + 'static>>>;
+    Box<dyn Fn(Sender<Message<T>>) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>>;
 
 fn box_future_factory<
     T: Debug,
     U: Fn(Sender<Message<T>>) -> Fut + 'static,
-    Fut: Future<Output=()> + Send + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
 >(
     future_factory: U,
 ) -> BoxedFutureFactory<T> {

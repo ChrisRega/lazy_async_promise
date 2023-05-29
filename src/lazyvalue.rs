@@ -136,7 +136,7 @@ mod test {
     use super::*;
     use crate::api_macros::*;
     use std::time::Duration;
-    use tokio::runtime::{Builder, Runtime};
+    use tokio::runtime::Builder;
     use tokio::sync::mpsc::Sender;
 
     #[test]
@@ -185,42 +185,38 @@ mod test {
             });
     }
 
-    #[test]
-    fn error_propagation() {
+    #[tokio::test]
+    async fn error_propagation() {
         let error_maker = |tx: Sender<Message<String>>| async move {
             let _ = unpack_result!(std::fs::read_to_string("FILE_NOT_EXISTING"), tx);
             unreachable!();
         };
 
-        Runtime::new().unwrap().block_on(async {
-            let mut delayed_vec = LazyValuePromise::new(error_maker, 1);
-            assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
-            assert!(delayed_vec.get_value().is_none());
-            tokio::time::sleep(Duration::from_millis(150)).await;
-            assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
-            assert!(delayed_vec.get_value().is_none());
-        });
+        let mut delayed_vec = LazyValuePromise::new(error_maker, 1);
+        assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
+        assert!(delayed_vec.get_value().is_none());
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert!(matches!(*delayed_vec.poll_state(), DataState::Error(_)));
+        assert!(delayed_vec.get_value().is_none());
     }
 
-    #[test]
-    fn test_direct_cache_access() {
+    #[tokio::test]
+    async fn test_direct_cache_access() {
         let int_maker = |tx: Sender<Message<i32>>| async move {
             send_data!(42, tx);
             set_finished!(tx);
         };
 
-        Runtime::new().unwrap().block_on(async {
-            let mut delayed_value = LazyValuePromise::new(int_maker, 6);
-            let _ = delayed_value.poll_state();
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            let poll_result = delayed_value.poll_state();
-            assert!(matches!(poll_result, DataState::UpToDate));
-            let val = delayed_value.get_value();
-            assert_eq!(*val.unwrap(), 42);
-            let _val_mut = delayed_value.get_value_mut();
-            let value_owned = delayed_value.take_value().unwrap();
-            assert_eq!(value_owned, 42);
-            assert!(delayed_value.is_uninitialized());
-        });
+        let mut delayed_value = LazyValuePromise::new(int_maker, 6);
+        let _ = delayed_value.poll_state();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let poll_result = delayed_value.poll_state();
+        assert!(matches!(poll_result, DataState::UpToDate));
+        let val = delayed_value.get_value();
+        assert_eq!(*val.unwrap(), 42);
+        let _val_mut = delayed_value.get_value_mut();
+        let value_owned = delayed_value.take_value().unwrap();
+        assert_eq!(value_owned, 42);
+        assert!(delayed_value.is_uninitialized());
     }
 }
