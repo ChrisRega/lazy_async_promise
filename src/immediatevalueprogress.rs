@@ -1,4 +1,4 @@
-use crate::{DirectCacheAccess, Progress};
+use crate::{BoxedSendError, DirectCacheAccess, Progress};
 use crate::{ImmediateValuePromise, ImmediateValueState};
 use std::borrow::Cow;
 use std::time::Instant;
@@ -132,15 +132,21 @@ impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
     }
 }
 
-impl<T: Send + 'static, M> DirectCacheAccess<T> for ProgressTrackedImValProm<T, M> {
+impl<T: Send + 'static, M> DirectCacheAccess<T, BoxedSendError> for ProgressTrackedImValProm<T, M> {
     fn get_value_mut(&mut self) -> Option<&mut T> {
         self.promise.get_value_mut()
     }
     fn get_value(&self) -> Option<&T> {
         self.promise.get_value()
     }
+    fn get_result(&self) -> Option<Result<&T, &BoxedSendError>> {
+        self.promise.get_result()
+    }
     fn take_value(&mut self) -> Option<T> {
         self.promise.take_value()
+    }
+    fn take_result(&mut self) -> Option<Result<T, BoxedSendError>> {
+        self.promise.take_result()
     }
 }
 #[cfg(test)]

@@ -117,7 +117,7 @@ pub enum ImmediateValueState<T> {
     Empty,
 }
 
-impl<T> DirectCacheAccess<T> for ImmediateValueState<T> {
+impl<T> DirectCacheAccess<T, BoxedSendError> for ImmediateValueState<T> {
     /// gets a mutable reference to the local cache if existing
     fn get_value_mut(&mut self) -> Option<&mut T> {
         match self {
@@ -129,6 +129,16 @@ impl<T> DirectCacheAccess<T> for ImmediateValueState<T> {
     fn get_value(&self) -> Option<&T> {
         if let ImmediateValueState::Success(inner) = self {
             Some(inner)
+        } else {
+            None
+        }
+    }
+
+    fn get_result(&self) -> Option<Result<&T, &BoxedSendError>> {
+        if let ImmediateValueState::Success(inner) = self {
+            Some(Ok(inner))
+        } else if let ImmediateValueState::Error(error) = self {
+            Some(Err(error))
         } else {
             None
         }
@@ -146,17 +156,35 @@ impl<T> DirectCacheAccess<T> for ImmediateValueState<T> {
         }
         None
     }
+
+    fn take_result(&mut self) -> Option<Result<T, BoxedSendError>> {
+        if matches!(self, ImmediateValueState::Success(_)) {
+            let val = mem::replace(self, ImmediateValueState::Empty);
+            return match val {
+                ImmediateValueState::Success(inner) => Some(Ok(inner)),
+                ImmediateValueState::Error(err) => Some(Err(err)),
+                _ => None,
+            };
+        }
+        None
+    }
 }
 
-impl<T: Send + 'static> DirectCacheAccess<T> for ImmediateValuePromise<T> {
+impl<T: Send + 'static> DirectCacheAccess<T, BoxedSendError> for ImmediateValuePromise<T> {
     fn get_value_mut(&mut self) -> Option<&mut T> {
         self.state.get_value_mut()
     }
     fn get_value(&self) -> Option<&T> {
         self.state.get_value()
     }
+    fn get_result(&self) -> Option<Result<&T, &BoxedSendError>> {
+        self.state.get_result()
+    }
     fn take_value(&mut self) -> Option<T> {
         self.state.take_value()
+    }
+    fn take_result(&mut self) -> Option<Result<T, BoxedSendError>> {
+        self.state.take_result()
     }
 }
 
