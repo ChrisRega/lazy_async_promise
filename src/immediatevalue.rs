@@ -231,6 +231,18 @@ impl<T: Send + 'static> ImmediateValuePromise<T> {
     }
 }
 
+impl<T, V> From<T> for ImmediateValuePromise<V> 
+where
+    T: Future<Output = V> + Send + 'static,
+    V: Send + 'static
+{
+    fn from(value: T) -> Self {
+        ImmediateValuePromise::new(async move {
+            Ok(value.await)
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fs::File;
