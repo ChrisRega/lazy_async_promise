@@ -70,6 +70,7 @@ impl<T: Debug> LazyValuePromise<T> {
     }
 
     #[cfg(test)]
+    /// Checks whether a value is uninitialized, convience for testing
     pub fn is_uninitialized(&self) -> bool {
         self.state == DataState::Uninitialized
     }
