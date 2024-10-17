@@ -13,7 +13,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 /// ```rust, no_run
 /// use std::time::Duration;
 /// use tokio::sync::mpsc::Sender;
-/// use lazy_async_promise::{DataState, Message, Promise, LazyVecPromise, api_macros::*, DirectCacheAccess};
+/// use lazy_async_promise::{DataState, Message, Promise, LazyVecPromise, api_macros::*, DirectCacheAccess, set_finished};
 /// // updater-future:
 /// let updater = |tx: Sender<Message<i32>>| async move {
 ///   const ITEM_COUNT: i32 = 100;
@@ -87,11 +87,6 @@ impl<T: Debug> LazyVecPromise<T> {
     pub fn as_slice_mut(&mut self) -> &mut [T] {
         self.data.as_mut_slice()
     }
-
-    #[cfg(test)]
-    pub fn is_uninitialized(&self) -> bool {
-        self.state == DataState::Uninitialized
-    }
 }
 
 impl<T: Debug> DirectCacheAccess<Vec<T>, String> for LazyVecPromise<T> {
@@ -130,7 +125,8 @@ impl<T: Debug> DirectCacheAccess<Vec<T>, String> for LazyVecPromise<T> {
             self.state = DataState::Uninitialized;
             Some(Ok(mem::take(&mut self.data)))
         } else if let DataState::Error(_) = self.state {
-            let DataState::Error(err) = mem::replace(&mut self.state, DataState::Uninitialized) else {
+            let DataState::Error(err) = mem::replace(&mut self.state, DataState::Uninitialized)
+            else {
                 unreachable!();
             };
             Some(Err(err))
@@ -202,7 +198,7 @@ mod test {
             .block_on(async {
                 let mut delayed_vec = LazyVecPromise::new(string_maker, 12);
                 // start empty, polling triggers update
-                assert!(delayed_vec.is_uninitialized());
+                assert_eq!(delayed_vec.state, DataState::Uninitialized);
                 assert_eq!(*delayed_vec.poll_state(), DataState::Updating(0.0.into()));
                 assert!(delayed_vec.as_slice().is_empty());
                 assert!(delayed_vec.as_slice_mut().is_empty());
@@ -268,6 +264,6 @@ mod test {
         let _val_mut = delayed_vec.get_value_mut();
         let value_owned = delayed_vec.take_value().unwrap();
         assert_eq!(*value_owned.first().unwrap(), 42);
-        assert!(delayed_vec.is_uninitialized());
+        assert_eq!(delayed_vec.state, DataState::Uninitialized);
     }
 }
