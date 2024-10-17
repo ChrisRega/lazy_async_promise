@@ -15,7 +15,6 @@
 //! - You want several items of the same kind / streamed? Use: [`LazyVecPromise`]
 //! - You want one item when ready and need lazy evaluation or have intermediate results? Use: [`LazyValuePromise`]
 #![deny(missing_docs)]
-#![deny(unused_qualifications)]
 #![deny(deprecated)]
 #![deny(absolute_paths_not_starting_with_crate)]
 #![deny(unstable_features)]
@@ -84,7 +83,9 @@ pub trait DirectCacheAccess<T, E> {
 }
 
 /// Blanket implementation for any `Option<DirectCacheAccess<T>>` allows for better handling of option-laziness
-impl<T: Send + 'static, E: Send + 'static, A: DirectCacheAccess<T, E>> DirectCacheAccess<T, E> for Option<A> {
+impl<T: Send + 'static, E: Send + 'static, A: DirectCacheAccess<T, E>> DirectCacheAccess<T, E>
+    for Option<A>
+{
     fn get_value_mut(&mut self) -> Option<&mut T> {
         self.as_mut().and_then(|inner| inner.get_value_mut())
     }

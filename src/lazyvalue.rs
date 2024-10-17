@@ -1,8 +1,8 @@
 use crate::{
     box_future_factory, BoxedFutureFactory, DataState, DirectCacheAccess, Message, Promise,
 };
-use std::{fmt::Debug, mem};
 use std::future::Future;
+use std::{fmt::Debug, mem};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 /// # A single lazy-async updated value
@@ -89,7 +89,7 @@ impl<T: Debug> DirectCacheAccess<T, String> for LazyValuePromise<T> {
 
     fn get_result(&self) -> Option<Result<&T, &String>> {
         if let DataState::UpToDate = self.state {
-            self.cache.as_ref().map(|cache| Ok(cache))
+            self.cache.as_ref().map(Ok)
         } else if let DataState::Error(error) = &self.state {
             Some(Err(error))
         } else {
@@ -111,9 +111,10 @@ impl<T: Debug> DirectCacheAccess<T, String> for LazyValuePromise<T> {
     fn take_result(&mut self) -> Option<Result<T, String>> {
         if self.state == DataState::UpToDate {
             self.state = DataState::Uninitialized;
-            self.cache.take().map(|cache|Ok(cache))
+            self.cache.take().map(|cache| Ok(cache))
         } else if let DataState::Error(_) = self.state {
-            let DataState::Error(err) = mem::replace(&mut self.state, DataState::Uninitialized) else {
+            let DataState::Error(err) = mem::replace(&mut self.state, DataState::Uninitialized)
+            else {
                 unreachable!();
             };
             Some(Err(err))

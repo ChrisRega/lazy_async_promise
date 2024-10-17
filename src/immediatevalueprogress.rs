@@ -125,10 +125,7 @@ impl<T: Send + 'static, M> ProgressTrackedImValProm<T, M> {
 
     /// Get the current progress
     pub fn get_progress(&self) -> Progress {
-        self.status
-            .last()
-            .map(|p| p.progress)
-            .unwrap_or(Progress::default())
+        self.status.last().map(|p| p.progress).unwrap_or_default()
     }
 }
 
