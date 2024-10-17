@@ -70,25 +70,35 @@ impl Deref for BoxedSendError {
 }
 
 /// Trait for directly accessing the cache underneath any promise
-pub trait DirectCacheAccess<T> {
+pub trait DirectCacheAccess<T, E> {
     /// returns mutable reference to the cache if applicable
     fn get_value_mut(&mut self) -> Option<&mut T>;
     /// returns a reference to the cache if applicable
     fn get_value(&self) -> Option<&T>;
+    /// returns a reference to the cache or to error if applicable
+    fn get_result(&self) -> Option<Result<&T, &E>>;
     /// takes the value and leaves the promise in a valid state indicating its emptiness
     fn take_value(&mut self) -> Option<T>;
+    /// takes the value or error and leaves the promise in a valid state indicating its emptiness
+    fn take_result(&mut self) -> Option<Result<T, E>>;
 }
 
 /// Blanket implementation for any `Option<DirectCacheAccess<T>>` allows for better handling of option-laziness
-impl<T: Send + 'static, A: DirectCacheAccess<T>> DirectCacheAccess<T> for Option<A> {
+impl<T: Send + 'static, E: Send + 'static, A: DirectCacheAccess<T, E>> DirectCacheAccess<T, E> for Option<A> {
     fn get_value_mut(&mut self) -> Option<&mut T> {
         self.as_mut().and_then(|inner| inner.get_value_mut())
     }
     fn get_value(&self) -> Option<&T> {
         self.as_ref().and_then(|inner| inner.get_value())
     }
+    fn get_result(&self) -> Option<Result<&T, &E>> {
+        self.as_ref().and_then(|inner| inner.get_result())
+    }
     fn take_value(&mut self) -> Option<T> {
         self.as_mut().and_then(|inner| inner.take_value())
+    }
+    fn take_result(&mut self) -> Option<Result<T, E>> {
+        self.as_mut().and_then(|inner| inner.take_result())
     }
 }
 
