@@ -68,12 +68,6 @@ impl<T: Debug> LazyValuePromise<T> {
             updater: box_future_factory(future_factory),
         }
     }
-
-    #[cfg(test)]
-    /// Checks whether a value is uninitialized, convience for testing
-    pub fn is_uninitialized(&self) -> bool {
-        self.state == DataState::Uninitialized
-    }
 }
 
 impl<T: Debug> DirectCacheAccess<T, String> for LazyValuePromise<T> {
@@ -185,7 +179,7 @@ mod test {
             .block_on(async {
                 let mut delayed_value = LazyValuePromise::new(string_maker, 6);
                 //be lazy:
-                assert!(delayed_value.is_uninitialized());
+                assert_eq!(delayed_value.state, DataState::Uninitialized);
                 //start sets updating
                 assert_eq!(
                     delayed_value.poll_state().get_progress().unwrap().as_f64(),
@@ -243,6 +237,6 @@ mod test {
         let _val_mut = delayed_value.get_value_mut();
         let value_owned = delayed_value.take_value().unwrap();
         assert_eq!(value_owned, 42);
-        assert!(delayed_value.is_uninitialized());
+        assert_eq!(delayed_value.state, DataState::Uninitialized);
     }
 }
